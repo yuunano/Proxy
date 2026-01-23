@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Proxy</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="logo">Antigravity <span class="highlight">Proxy</span></h1>
+            <p class="tagline">Gravity is just a suggestion.</p>
+        </header>
+
+        <main class="main-interface">
+            <form id="proxy-form" class="proxy-form" onsubmit="event.preventDefault()">
+                <div class="input-group">
+                    <select id="proxy-mode" class="mode-select" aria-label="Select Proxy Mode">
+                        <option value="translate">Google Translate</option>
+                        <option value="bing">Microsoft Translator</option>
+                        <option value="wayback">Wayback Machine</option>
+                        <option value="custom">Custom Server</option>
+                    </select>
+                    <input type="text" id="url-input" class="url-input" placeholder="Enter URL (https://...)"
+                        autocomplete="off" required>
+                    <button type="submit" class="go-btn" aria-label="Go">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+
+            <div class="quick-links">
+                <button class="quick-link" data-url="https://www.google.com">Google</button>
+                <button class="quick-link" data-url="https://www.youtube.com">YouTube</button>
+                <button class="quick-link" data-url="https://x.com">X (Twitter)</button>
+                <button class="quick-link" data-url="https://www.wikipedia.org">Wikipedia</button>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <nav class="footer-nav">
+                <a href="../TERMS.md" target="_blank">Terms</a>
+                <a href="https://github.com/yuunano/antigravity-proxy" target="_blank">GitHub</a>
+            </nav>
+            <p class="copyright">&copy; 2026 Antigravity Proxy. Educational Purpose Only.</p>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
