@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const quickLinks = document.querySelectorAll('.quick-link');
 
     // 実際のプロキシサーバーのエンドポイント（Custom Mode用）
-    const CUSTOM_PROXY_BASE = 'https://proxy-7e3b.onrender.com';
+    const CUSTOM_PROXY_BASE = 'http://localhost:3000/proxy?url=';
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -68,13 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`Navigating to: ${target} via ${mode} mode`);
 
         if (mode === 'custom') {
-            alert(`Connecting to Custom Server:\n${target}\n\n(Ensure server is running at localhost:3000)`);
-            // In a real scenario: window.location.href = finalUrl;
+            // Navigate directly to the proxy to allow it to handle the session
+            window.location.href = finalUrl;
         } else {
             // For public gateways, we can open directly
             window.open(finalUrl, '_blank');
         }
     }
 });
-
-
