@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const quickLinks = document.querySelectorAll('.quick-link');
 
     // 実際のプロキシサーバーのエンドポイント（Custom Mode用）
-    const CUSTOM_PROXY_BASE = 'https://proxy-7e3b.onrender.com/proxy';
+    const CUSTOM_PROXY_BASE = 'https://proxy-7e3b.onrender.com';
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -76,4 +76,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
 
