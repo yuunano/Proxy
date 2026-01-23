@@ -21,7 +21,7 @@
         </header>
 
         <main class="main-interface">
-            <form id="proxy-form" class="proxy-form">
+            <form id="proxy-form" class="proxy-form" onsubmit="event.preventDefault()">
                 <div class="input-group">
                     <select id="proxy-mode" class="mode-select" aria-label="Select Proxy Mode">
                         <option value="translate">Google Translate</option>
@@ -31,7 +31,7 @@
                     </select>
                     <input type="text" id="url-input" class="url-input" placeholder="Enter URL (https://...)"
                         autocomplete="off" required>
-                    <button type="submit" class="go-btn" aria-label="Go">
+                    <button type="button" id="go-btn" class="go-btn" aria-label="Go">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="5" y1="12" x2="19" y2="12"></line>
