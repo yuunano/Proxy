@@ -52,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isUrl = target.includes('.') && !target.includes(' ');
 
         if (!isUrl) {
-            // DuckDuckGo検索に変換 (Googleはブロックされやすいため)
-            target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target);
+            // DuckDuckGo Liteを使用 (JSを使わないためプロキシでのリンク書き換えが安定する)
+            target = 'https://duckduckgo.com/lite/?q=' + encodeURIComponent(target);
         } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
             // プロトコルがない場合はhttpsを付与
             target = 'https://' + target;
