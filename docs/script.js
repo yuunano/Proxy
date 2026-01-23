@@ -52,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isUrl = target.includes('.') && !target.includes(' ');
 
         if (!isUrl) {
-            // Google検索URLに変換
-            target = 'https://www.google.com/search?q=' + encodeURIComponent(target);
+            // DuckDuckGo検索に変換 (Googleはブロックされやすいため)
+            target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target);
         } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
             // プロトコルがない場合はhttpsを付与
             target = 'https://' + target;
