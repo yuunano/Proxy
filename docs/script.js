@@ -29,8 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function handleNavigation(destinationUrl, mode) {
-        let target = destinationUrl;
-        if (!target.startsWith('http://') && !target.startsWith('https://')) {
+        let target = destinationUrl.trim();
+
+        // Simple heuristic to check if it's a URL or a Search Query
+        // If it contains a space, or doesn't have a dot, treat as search query
+        const isUrl = target.includes('.') && !target.includes(' ');
+
+        if (!isUrl) {
+            // Treat as Google Search
+            target = 'https://www.google.com/search?q=' + encodeURIComponent(target);
+        } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
             target = 'https://' + target;
         }
 
@@ -76,4 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+
 
