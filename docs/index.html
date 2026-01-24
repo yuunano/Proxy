@@ -16,17 +16,27 @@
 <body>
     <nav class="top-nav">
         <div class="nav-left">
-            <span class="nav-brand">Antigravity</span>
             <div class="nav-tabs">
                 <button class="nav-tab active" data-tab="proxy-view" data-i18n="tab_proxy">Proxy</button>
                 <button class="nav-tab" data-tab="usage-view" data-i18n="tab_usage">Usage</button>
             </div>
         </div>
         <div class="nav-right">
-            <select id="lang-select" class="lang-select">
-                <option value="ja">日本語</option>
-                <option value="en">English</option>
-            </select>
+            <div class="lang-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lang-icon">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path
+                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                    </path>
+                </svg>
+                <select id="lang-select" class="lang-select">
+                    <option value="ja">日本語</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
         </div>
     </nav>
 
