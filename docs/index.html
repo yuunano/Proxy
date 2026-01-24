@@ -20,34 +20,91 @@
             <p class="tagline">Gravity is just a suggestion.</p>
         </header>
 
-        <main class="main-interface">
-            <form id="proxy-form" class="proxy-form" onsubmit="event.preventDefault()">
-                <div class="input-group">
-                    <select id="proxy-mode" class="mode-select" aria-label="Select Proxy Mode">
-                        <option value="translate">Google Translate</option>
-                        <option value="bing">Microsoft Translator</option>
-                        <option value="wayback">Wayback Machine</option>
-                        <option value="custom">Custom Server</option>
-                    </select>
-                    <input type="text" id="url-input" class="url-input" placeholder="Enter URL (https://...)"
-                        autocomplete="off" required>
-                    <button type="button" id="go-btn" class="go-btn" aria-label="Go">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                            <polyline points="12 5 19 12 12 19"></polyline>
-                        </svg>
-                    </button>
-                </div>
-            </form>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="proxy-view">Proxy</button>
+            <button class="tab-btn" data-tab="usage-view">Usage</button>
+        </div>
 
-            <div class="quick-links">
-                <button class="quick-link" data-url="https://www.google.com">Google</button>
-                <button class="quick-link" data-url="https://www.youtube.com">YouTube</button>
-                <button class="quick-link" data-url="https://x.com">X (Twitter)</button>
-                <button class="quick-link" data-url="https://www.wikipedia.org">Wikipedia</button>
+        <section id="proxy-view" class="view-section active">
+            <div class="main-interface">
+                <form id="proxy-form" class="proxy-form" onsubmit="event.preventDefault()">
+                    <div class="input-group">
+                        <select id="proxy-mode" class="mode-select" aria-label="Select Proxy Mode">
+                            <option value="custom">Custom Server (Recommended)</option>
+                            <option value="translate">Google Translate</option>
+                            <option value="bing">Microsoft Translator</option>
+                            <option value="wayback">Wayback Machine</option>
+                            <option value="archiveis">Archive.today</option>
+                        </select>
+                        <input type="text" id="url-input" class="url-input" placeholder="Enter URL or Search Query"
+                            autocomplete="off" required>
+                        <button type="button" id="go-btn" class="go-btn" aria-label="Go">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="quick-links">
+                    <button class="quick-link" data-url="https://www.google.com">Google</button>
+                    <button class="quick-link" data-url="https://www.youtube.com">YouTube</button>
+                    <button class="quick-link" data-url="https://x.com">X (Twitter)</button>
+                    <button class="quick-link" data-url="https://www.wikipedia.org">Wikipedia</button>
+                </div>
             </div>
-        </main>
+        </section>
+
+        <section id="usage-view" class="view-section hidden">
+            <div class="usage-content">
+                <h2>How to Use</h2>
+                <p>1. <strong>Select Mode</strong>: Choose "Custom Server" for the best experience.</p>
+                <p>2. <strong>Enter URL</strong>: Type a website address or a search keyword.</p>
+                <p>3. <strong>Click GO</strong>: Access the site through the proxy.</p>
+
+                <div class="alert-box">
+                    <strong>⚠️ Important Advice</strong>
+                    <p>If <b>Custom Server</b> stops working or is blocked, please switch to <b>Google Translate</b> or
+                        <b>Microsoft Translator</b> immediately.</p>
+                </div>
+
+                <h3>Mode Comparison</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Mode</th>
+                            <th>Feature</th>
+                            <th>Interactive</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Custom Server</td>
+                            <td>Full Browsing, Login support</td>
+                            <td>✅ High</td>
+                        </tr>
+                        <tr>
+                            <td>Google Translate</td>
+                            <td>Fast, Public Server</td>
+                            <td>⚠️ Medium</td>
+                        </tr>
+                        <tr>
+                            <td>Microsoft/Bing</td>
+                            <td>Alternative to Google</td>
+                            <td>⚠️ Medium</td>
+                        </tr>
+                        <tr>
+                            <td>Wayback Machine</td>
+                            <td>View Deleted Sites</td>
+                            <td>❌ Low (Static)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
         <footer class="footer">
             <nav class="footer-nav">
