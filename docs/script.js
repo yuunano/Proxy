@@ -153,8 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isUrl = target.includes('.') && !target.includes(' ');
 
         if (!isUrl) {
-            // Search: DuckDuckGo Lite
-            target = 'https://duckduckgo.com/lite/?q=' + encodeURIComponent(target);
+            // DuckDuckGo通常版 (日本語設定: kl=jp-jp)
+            target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target) + '&kl=jp-jp&kad=ja_JP';
         } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
             target = 'https://' + target;
         }
@@ -165,6 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'custom':
                 let base = CUSTOM_PROXY_BASE;
                 if (!base.endsWith('/')) base += '/';
+
+                // Stealth Logic: "http://" という文字列がURLに含まれるとブロックされる場合がある
+                // そのため、http:// を plain:// に置換して送信する（バックエンドで戻す）
+                if (target.startsWith('http://')) {
+                    target = target.replace('http://', 'plain://');
+                }
+
                 finalUrl = base + target;
                 break;
             case 'translate':
