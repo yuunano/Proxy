@@ -7,6 +7,30 @@ const PORT = process.env.PORT || 3000;
 // This handles URL rewriting, cookie forwarding, script injection, etc.
 const unblocker = new Unblocker({
     prefix: '/proxy/', // The base path for the proxy
+    requestMiddleware: [
+        (data) => {
+            // 1. Randomize User-Agent to look like a real browser (Anti-Detection)
+            const userAgents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15'
+            ];
+            const randomAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+            data.headers['user-agent'] = randomAgent;
+
+            // 2. Hide Proxy Headers (High Anonymity)
+            delete data.headers['x-forwarded-for'];
+            delete data.headers['via'];
+            delete data.headers['x-real-ip'];
+
+            // 3. Spoof Referer/Origin for stricter sites (Experimental)
+            // Some sites check if the referer matches their own domain
+            // if (data.url.includes('youtube.com')) {
+            //     data.headers['referer'] = 'https://www.youtube.com/';
+            // }
+        }
+    ],
     responseMiddleware: [
         // Optional: Middleware to modify responses if needed in the future
     ]

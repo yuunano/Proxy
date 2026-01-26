@@ -30,11 +30,13 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 2rem;
-    height: 60px;
-    background-color: var(--nav-bg);
-    border-bottom: 1px solid #222;
-    position: sticky;
+    padding: 0 1.5rem;
+    height: 50px;
+    background-color: transparent;
+    /* Transparent to blend */
+    position: absolute;
+    /* Floating header for immersive feel */
+    width: 100%;
     top: 0;
     z-index: 100;
 }
@@ -42,50 +44,69 @@ body {
 .nav-left {
     display: flex;
     align-items: center;
-    gap: 2rem;
-}
-
-.nav-brand {
-    font-weight: 600;
-    font-size: 1.1rem;
-    letter-spacing: -0.02em;
 }
 
 .nav-tabs {
     display: flex;
-    gap: 0.5rem;
+    gap: 1.5rem;
 }
 
 .nav-tab {
     background: transparent;
     border: none;
     color: #888;
-    padding: 0.5rem 1rem;
+    padding: 0;
     font-size: 0.9rem;
     cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.2s;
+    transition: color 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
 }
 
 .nav-tab:hover {
     color: #fff;
-    background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-tab.active {
     color: #fff;
-    background: #333;
-    font-weight: 500;
+    border-bottom: 1px solid #fff;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+}
+
+.lang-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #888;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+.lang-wrapper:hover {
+    color: #fff;
 }
 
 .lang-select {
-    background: #222;
-    color: #ccc;
-    border: 1px solid #444;
-    padding: 0.3rem 0.6rem;
-    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    border: none;
+    font-family: var(--font-main);
+    font-size: 0.9rem;
     cursor: pointer;
-    font-size: 0.8rem;
+    outline: none;
+    appearance: none;
+    /* Remove default arrow */
+    text-align: right;
+}
+
+.lang-select option {
+    background: #222;
+    color: #fff;
 }
 
 /* MAIN CONTAINER */
@@ -103,7 +124,8 @@ body {
 
 .view-section {
     width: 100%;
-    animation: fadeUp 0.4s ease-out;
+    animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
 }
 
 .view-section.hidden {
@@ -113,7 +135,7 @@ body {
 @keyframes fadeUp {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(40px);
     }
 
     to {
