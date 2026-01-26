@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ja: {
             tab_proxy: "プロキシ",
             tab_usage: "使い方",
-            tagline: "通信保護、規制の抜け道のためのウェブサイト…",
+            tagline: "重力なんて、ただの提案にすぎない。",
             mode_custom: "カスタムサーバー (推奨)",
             mode_translate: "Google翻訳",
             mode_bing: "Bing翻訳",
@@ -202,4 +202,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Language (Default Japanese)
     applyLanguage('ja');
 });
-

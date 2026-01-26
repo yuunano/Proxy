@@ -51,6 +51,15 @@ app.use(unblocker);
 
 // Root route - Basic Status Page
 app.get('/', (req, res) => {
+    // Fix for DuckDuckGo search bar within proxy
+    // If the proxy fails to rewrite the search form, it submits to /, so we catch it here.
+    if (req.query.q) {
+        // Assume it's a DuckDuckGo search
+        const query = req.query.q;
+        const ddgUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(query) + '&kl=jp-jp&kad=ja_JP';
+        return res.redirect('/proxy/' + ddgUrl);
+    }
+
     res.send(`
         <html>
             <head>
