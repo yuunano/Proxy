@@ -36,6 +36,22 @@ const unblocker = new Unblocker({
     ]
 });
 
+// Initialize Unblocker
+const unblocker = new Unblocker({
+    prefix: '/proxy/',
+    requestMiddleware: [
+        // ... (existing middleware) ...
+    ]
+});
+
+// Stealh Middleware: Rewrite 'plain://' to 'http://' to bypass "http" keyword filters
+app.use((req, res, next) => {
+    if (req.url.includes('plain://')) {
+        req.url = req.url.replace('plain://', 'http://');
+    }
+    next();
+});
+
 // Mount Unblocker and let it handle the requests under /proxy/
 app.use(unblocker);
 
