@@ -65,7 +65,7 @@ const unblocker = new Unblocker({
                 </script>
                 `;
                 // Append inside <head> or at the end
-                if (data.body.includes('</body>')) {
+                if (data.body && data.body.includes('</body>')) {
                     data.body = data.body.replace('</body>', script + '</body>');
                 } else {
                     data.body += script;
@@ -131,3 +131,4 @@ app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
     console.log(`Proxy Prefix: /proxy/`);
 });
+
