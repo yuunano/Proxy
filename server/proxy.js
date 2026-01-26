@@ -32,7 +32,30 @@ const unblocker = new Unblocker({
         }
     ],
     responseMiddleware: [
-        // Optional: Middleware to modify responses if needed in the future
+        // Inject a script to force links to stay within the proxy
+        (data) => {
+            if (data.contentType && data.contentType.includes('text/html')) {
+                const script = `
+                <script>
+                    document.addEventListener('click', function(e) {
+                        const anchor = e.target.closest('a');
+                        if (anchor && anchor.href && !anchor.href.includes('/proxy/')) {
+                            e.preventDefault();
+                            // Force redirect through proxy
+                            const targetUrl = anchor.href;
+                            window.location.href = '/proxy/' + targetUrl;
+                        }
+                    }, true);
+                </script>
+                `;
+                // Append just before </body> or at the end
+                if (data.body.includes('</body>')) {
+                    data.body = data.body.replace('</body>', script + '</body>');
+                } else {
+                    data.body += script;
+                }
+            }
+        }
     ]
 });
 
