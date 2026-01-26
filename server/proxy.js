@@ -32,23 +32,39 @@ const unblocker = new Unblocker({
         }
     ],
     responseMiddleware: [
-        // Inject a script to force links to stay within the proxy
+        // Inject a script to force links to stay within the proxy (Enhanced "Sticky" Logic)
         (data) => {
             if (data.contentType && data.contentType.includes('text/html')) {
                 const script = `
                 <script>
-                    document.addEventListener('click', function(e) {
-                        const anchor = e.target.closest('a');
-                        if (anchor && anchor.href && !anchor.href.includes('/proxy/')) {
-                            e.preventDefault();
-                            // Force redirect through proxy
-                            const targetUrl = anchor.href;
-                            window.location.href = '/proxy/' + targetUrl;
-                        }
-                    }, true);
+                    (function() {
+                        // 1. Intercept Click Events
+                        document.addEventListener('click', function(e) {
+                            const anchor = e.target.closest('a');
+                            if (anchor && anchor.href && !anchor.href.startsWith(window.location.origin + '/proxy/')) {
+                                e.preventDefault();
+                                const targetUrl = anchor.href;
+                                // Simple check to avoid double-proxying if inherent
+                                if (targetUrl.startsWith('http')) {
+                                    window.location.href = '/proxy/' + targetUrl;
+                                } else {
+                                    window.location.href = targetUrl;
+                                }
+                            }
+                        }, true);
+
+                        // 2. Monkey-patch window.open
+                        const originalOpen = window.open;
+                        window.open = function(url, target, features) {
+                            if (url && !url.includes('/proxy/') && url.startsWith('http')) {
+                                return originalOpen('/proxy/' + url, target, features);
+                            }
+                            return originalOpen(url, target, features);
+                        };
+                    })();
                 </script>
                 `;
-                // Append just before </body> or at the end
+                // Append inside <head> or at the end
                 if (data.body.includes('</body>')) {
                     data.body = data.body.replace('</body>', script + '</body>');
                 } else {
