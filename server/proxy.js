@@ -38,134 +38,16 @@ const unblocker = new Unblocker({
             data.headers['access-control-allow-origin'] = '*';
             data.headers['access-control-allow-methods'] = 'GET, POST, OPTIONS, HEAD, PUT, DELETE';
         },
-        // 2. Inject a script to force links to stay within the proxy (Nuclear "Stop Everything" Logic)
+        // 2. Inject a script to force links to stay within the proxy (Nuclear Externalized)
         (data) => {
             if (data.contentType && data.contentType.includes('text/html')) {
-                const script = `
-                <script>
-                    (function() {
-                        const PROXY_PREFIX = '/proxy/';
-                        
-                        function isProxied(url) {
-                            return url.includes(PROXY_PREFIX);
-                        }
+                // Point to our internal cacheable script instead of injecting the whole thing
+                const scriptTag = `<script src="/proxy-internal/sticky.js"></script>`;
 
-                        function toProxyUrl(originalUrl) {
-                            if (!originalUrl) return originalUrl;
-                            if (isProxied(originalUrl)) return originalUrl;
-                            if (originalUrl.startsWith(window.location.origin + PROXY_PREFIX)) return originalUrl;
-                            
-                            // Only proxy http(s) links
-                            if (originalUrl.startsWith('http')) {
-                                let target = originalUrl;
-                                // Stealth: Obfuscate http to plain
-                                if (target.startsWith('http://')) {
-                                    target = target.replace('http://', 'plain://');
-                                }
-                                return window.location.origin + PROXY_PREFIX + target;
-                            }
-                            return originalUrl;
-                        }
-
-                        // --- NUCLEAR EVENT CAPTURE (The "Stop Everything" Approach) ---
-                        
-                        // 1. Click Capture (Window Level)
-                        window.addEventListener('click', function(e) {
-                            const anchor = e.target.closest('a') || e.target.closest('area');
-                            
-                            if (anchor && anchor.href) {
-                                // Ignore non-navigational links
-                                if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
-                                
-                                const proxyUrl = toProxyUrl(anchor.href);
-                                
-                                // If the URL needs proxying, FORCE it.
-                                if (proxyUrl !== anchor.href) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.stopImmediatePropagation(); // Kill other listeners
-                                    
-                                    console.log('Nuclear Proxy Intercept: Click ->', proxyUrl);
-
-                                    if (anchor.target === '_blank') {
-                                        window.open(proxyUrl, '_blank');
-                                    } else {
-                                        window.location.href = proxyUrl;
-                                    }
-                                }
-                            }
-                        }, true); // CAPTURE PHASE starts at window!
-
-                        // 2. Submit Capture (Window Level)
-                        window.addEventListener('submit', function(e) {
-                            const form = e.target;
-                            if (form.action) {
-                                const proxyUrl = toProxyUrl(form.action);
-                                if (proxyUrl !== form.action) {
-                                    // Rewrite action immediately before submit proceeds
-                                    console.log('Nuclear Proxy Intercept: Submit ->', proxyUrl);
-                                    form.action = proxyUrl;
-                                    // We don't preventDefault here, just modify the request destination
-                                }
-                            }
-                        }, true);
-
-                        // 3. Keydown Capture (Enter Key)
-                        // Useful for when Enter triggers a JS-based navigation instead of a form submit
-                        window.addEventListener('keydown', function(e) {
-                            if (e.key === 'Enter') {
-                                // If inside an input that belongs to a form, current submit listener handles it.
-                                // But if it's a standalone input with JS listener... we can't easily predict destination.
-                                // However, we can patch \`window.location\` assignment via Object.defineProperty?
-                                // That's risky. Instead, we rely on the History/Window patches below.
-                            }
-                        }, true);
-
-                        // 4. History API Patch (SPA Navigation)
-                        const originalPushState = history.pushState;
-                        const originalReplaceState = history.replaceState;
-
-                        function patchHistoryMethod(original) {
-                            return function(state, unused, url) {
-                                if (url) {
-                                    if (typeof url === 'string' && url.startsWith('http') && !isProxied(url)) {
-                                        arguments[2] = toProxyUrl(url);
-                                    }
-                                }
-                                return original.apply(this, arguments);
-                            };
-                        }
-                        history.pushState = patchHistoryMethod(originalPushState);
-                        history.replaceState = patchHistoryMethod(originalReplaceState);
-
-                        // 5. Window.open Patch
-                        const originalOpen = window.open;
-                        window.open = function(url, target, features) {
-                            if (url) {
-                                arguments[0] = toProxyUrl(url);
-                            }
-                            return originalOpen.apply(this, arguments);
-                        };
-                        
-                        // 6. Location Assignment Patch (Experimental)
-                        try {
-                            // We can't overwrite location directly, but we can catch rapid changes? 
-                            // No, best is to rely on the above.
-                        } catch(e) {}
-
-                        // --- Stealth: WebRTC Disable ---
-                        if (window.RTCPeerConnection) window.RTCPeerConnection = null;
-                        if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = null;
-                        if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = null;
-
-                    })();
-                </script>
-                `;
-                // Append inside <body> or at the end
                 if (data.body && data.body.includes('</body>')) {
-                    data.body = data.body.replace('</body>', script + '</body>');
+                    data.body = data.body.replace('</body>', scriptTag + '</body>');
                 } else if (data.body) {
-                    data.body += script;
+                    data.body += scriptTag;
                 }
             }
         }
@@ -174,7 +56,91 @@ const unblocker = new Unblocker({
 
 
 
-// Stealh Middleware: Rewrite 'plain://' to 'http://' to bypass "http" keyword filters
+const compression = require('compression');
+app.use(compression());
+
+// --- INTERNAL ROUTES (Fast, No-Proxy) ---
+// Moving the huge sticky script to a separate file so it's cached by the browser
+app.get('/proxy-internal/sticky.js', (req, res) => {
+    res.set('Content-Type', 'application/javascript');
+    res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.send(`
+    (function() {
+        const PROXY_PREFIX = '/proxy/';
+        
+        function isProxied(url) {
+            return url.includes(PROXY_PREFIX);
+        }
+
+        function toProxyUrl(originalUrl) {
+            if (!originalUrl) return originalUrl;
+            if (isProxied(originalUrl)) return originalUrl;
+            if (originalUrl.startsWith(window.location.origin + PROXY_PREFIX)) return originalUrl;
+            
+            if (originalUrl.startsWith('http')) {
+                let target = originalUrl;
+                if (target.startsWith('http://')) {
+                    target = target.replace('http://', 'plain://');
+                }
+                return window.location.origin + PROXY_PREFIX + target;
+            }
+            return originalUrl;
+        }
+
+        // --- NUCLEAR EVENT CAPTURE ---
+        window.addEventListener('click', function(e) {
+            const anchor = e.target.closest('a') || e.target.closest('area');
+            if (anchor && anchor.href) {
+                if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
+                const proxyUrl = toProxyUrl(anchor.href);
+                if (proxyUrl !== anchor.href) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    if (anchor.target === '_blank') {
+                        window.open(proxyUrl, '_blank');
+                    } else {
+                        window.location.href = proxyUrl;
+                    }
+                }
+            }
+        }, true);
+
+        window.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (form.action) {
+                const proxyUrl = toProxyUrl(form.action);
+                if (proxyUrl !== form.action) {
+                    form.action = proxyUrl;
+                }
+            }
+        }, true);
+
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        function patchHistoryMethod(original) {
+            return function(state, unused, url) {
+                if (url && typeof url === 'string' && url.startsWith('http') && !isProxied(url)) {
+                    arguments[2] = toProxyUrl(url);
+                }
+                return original.apply(this, arguments);
+            };
+        }
+        history.pushState = patchHistoryMethod(originalPushState);
+        history.replaceState = patchHistoryMethod(originalReplaceState);
+
+        const originalOpen = window.open;
+        window.open = function(url, target, features) {
+            if (url) arguments[0] = toProxyUrl(url);
+            return originalOpen.apply(this, arguments);
+        };
+
+        if (window.RTCPeerConnection) window.RTCPeerConnection = null;
+    })();
+    `);
+});
+
+// Stealth Middleware: Rewrite 'plain://' to 'http://' to bypass "http" keyword filters
 app.use((req, res, next) => {
     if (req.url.includes('plain://')) {
         req.url = req.url.replace('plain://', 'http://');
