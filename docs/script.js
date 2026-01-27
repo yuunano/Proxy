@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Constants ---
     // RenderのURL (末尾スラッシュ必須)
     const PROXY_SERVER_URL = 'https://proxy-7e3b.onrender.com';
+    // AI専用のサーバーURL (Vercelデプロイ後にここを書き換えてね！)
+    const AI_SERVER_URL = PROXY_SERVER_URL; // とりあえず最初は同じにしておくよ
     const CUSTOM_PROXY_BASE = PROXY_SERVER_URL + '/proxy/';
 
     // --- Translations ---
@@ -152,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const lang = langSelect.value;
-            const response = await fetch(`${PROXY_SERVER_URL}/api/ai`, {
+            const response = await fetch(`${AI_SERVER_URL}/api/ai`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: text, lang: lang })
