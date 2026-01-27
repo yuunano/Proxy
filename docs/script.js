@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Constants ---
     const PROXY_SERVER_URL = 'https://proxy-7e3b.onrender.com';
     // AI専用のサーバーURL (Cloudflare WorkersのURLをここに入れるよ！)
-    const AI_SERVER_URL = 'https://ここに自分のWorkersのURLを入れてね.workers.dev';
+    const AI_SERVER_URL = 'https://antigravity-ai.yuunozhikkyou-sabu-1017.workers.dev';
     const CUSTOM_PROXY_BASE = PROXY_SERVER_URL + '/proxy/';
 
     // --- Translations ---
@@ -355,4 +355,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Language (Default Japanese)
     applyLanguage('ja');
 });
+
 
