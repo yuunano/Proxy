@@ -54,37 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
             row_bing_feat: "Googleの代替として",
             row_wayback_feat: "消されたサイトも閲覧可",
             changelog_title: "アップデート履歴",
-            v150_1: "ロード高速化のためのデータ圧縮を導入",
-            v150_2: "スクリプトの外出し（キャッシュ化）による最適化",
-            v150_3: "動画ストリーミングの互換性を向上",
-            v141_1: "軽量版 DuckDuckGo Lite を追加",
-            v141_2: "検索結果を日本語に固定するように強化",
-            v141_3: "フッターにバージョン情報を表示",
-            v140_1: "検索エンジン選択機能（Google/Bing/DDG）",
-            v140_2: "「二重プロキシ（Chained Croxy）」モードを追加",
-            v140_3: "スマホ・モバイル端末向けのUI調整",
-            v130_1: "リンク処理を強化する「Nuclear Click」戦略の導入",
-            v130_2: "CSPおよびX-Frameヘッダーの自動削除",
-            v130_3: "User-Agentのランダム化（検知回避）",
-            v120_1: "日本語・英語の多言語対応",
-            v120_2: "プレミアムなダークモードUIデザイン",
-            v120_3: "人気サイトへの「クイックリンク」を追加",
-            v100_1: "Antigravity Proxy 初版リリース",
-            v100_2: "Unblockerエンジンによる基本機能の実装",
             ai_welcome: "こんにちは、ゆう！Antigravity Assistantです。何かお手伝いできることはありますか？",
             ai_placeholder: "質問を入力...",
-            ai_err_empty: "メッセージを入力してください。",
-            ai_resp_default: "すみません、その質問にはまだ答えられません。使い方のタブを確認するか、URLを入力してみてください！",
-            ai_resp_slow: "プロキシが遅い場合は、サーバーの場所や時間帯が影響している可能性があります。動画の場合は少し待つか、二重プロキシモードを試してね！",
-            ai_resp_video: "動画（YouTubeなど）が見れない場合は「Antigravity」モードで、しばらくロードを待ってみてください。内部で特別なパッチを当てています！",
-            ai_resp_how: "「プロキシ」タブで、見たいサイトのURLを入力してGOボタンを押すだけだよ！かんたんでしょ？",
-            ai_site_explainer: "そのサイトについて調べてみたよ！: ",
-            ai_site_unknown: "ごめんね、そのサイトの詳しいことはわからないけど、URLからするとウェブサイトのようだよ。",
-            site_yt: "世界最大の動画共有プラットフォームだよ。音楽や実況、教育動画まで何でもあるよ！",
-            site_google: "世界で最も使われている検索エンジンだよ。知りたいことは何でも教えてくれるね。",
-            site_wiki: "みんなで作る百科事典だよ。難しい用語や歴史を調べるのに便利だね。",
-            site_twi: "今の出来事をリアルタイムで知ることができるSNSだよ。",
-            site_github: "プログラムのコードを保存したり、世界中の開発者と協力したりする場所だよ。"
+            ai_err_empty: "メッセージを入力してください。"
         },
         en: {
             tab_proxy: "Proxy",
@@ -118,37 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
             row_bing_feat: "Alternative to Google",
             row_wayback_feat: "View Deleted Sites",
             changelog_title: "Update History",
-            v150_1: "Added data compression for faster loading",
-            v150_2: "Externalized sticky scripts for browser caching",
-            v150_3: "Optimized video streaming compatibility",
-            v141_1: "Added DuckDuckGo Lite for maximum compatibility",
-            v141_2: "Implemented localized Japanese search results",
-            v141_3: "Added version badge to footer",
-            v140_1: "Added Search Engine Selector (Google/Bing/DDG)",
-            v140_2: "Added \"Chained Croxy\" (Double Proxy) mode",
-            v140_3: "Improved mobile UI responsiveness",
-            v130_1: "Implemented \"Nuclear Click\" strategy",
-            v130_2: "Automatic CSP and X-Frame header stripping",
-            v130_3: "Randomized User-Agent (Anti-Detection)",
-            v120_1: "Multi-language support (JP/EN)",
-            v120_2: "Dark mode premium UI design",
-            v120_3: "Added \"Quick Links\" for popular sites",
-            v100_1: "Initial release of Antigravity Proxy",
-            v100_2: "Basic Unblocker integration",
             ai_welcome: "Hi, I'm Gravity AI! How can I help you today?",
             ai_placeholder: "Type a message...",
-            ai_err_empty: "Please type something.",
-            ai_resp_default: "I'm not sure about that. Check the Usage tab or try entering a URL!",
-            ai_resp_slow: "If it's slow, try another time or use Double Proxy mode. Server load varies!",
-            ai_resp_video: "For videos, stick to 'Antigravity' mode and give it a few seconds to buffer. We have special patches for that!",
-            ai_resp_how: "Just type a URL in the Proxy tab and hit GO. It's that simple!",
-            ai_site_explainer: "I looked into that site!: ",
-            ai_site_unknown: "Sorry, I don't know much about that specific site, but it appears to be a web destination.",
-            site_yt: "The world's largest video sharing platform.",
-            site_google: "The most popular search engine on Earth.",
-            site_wiki: "A free online encyclopedia built by anyone.",
-            site_twi: "A social network for real-time news and microblogging.",
-            site_github: "A platform for hosting code and collaborating with developers."
+            ai_err_empty: "Please type something."
         }
     };
 
@@ -165,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (view.id === targetId) {
                     view.classList.remove('hidden');
                     view.classList.add('active');
+                    // Load changelog if that tab is selected
+                    if (targetId === 'changelog-view') renderChangelog();
                 } else {
                     view.classList.add('hidden');
                     view.classList.remove('active');
@@ -190,41 +136,39 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') handleAiMessage();
     });
 
-    function handleAiMessage() {
+    async function handleAiMessage() {
         const text = aiInput.value.trim();
         if (!text) return;
 
         appendMessage('user', text);
         aiInput.value = '';
 
-        // Simple Logic Response
-        setTimeout(() => {
+        // Add loading indicator
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message system typing';
+        typingDiv.innerHTML = '<p>...</p>';
+        aiMessages.appendChild(typingDiv);
+        aiMessages.scrollTop = aiMessages.scrollHeight;
+
+        try {
             const lang = langSelect.value;
-            let response = i18n[lang].ai_resp_default;
+            const response = await fetch(`${PROXY_SERVER_URL}/api/ai`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: text, lang: lang })
+            });
 
-            const lowText = text.toLowerCase();
-            const urlMatch = text.match(/(https?:\/\/[^\s]+)/g) || text.match(/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
-            const isAskingWhat = lowText.includes('なに') || lowText.includes('何') || lowText.includes('what') || lowText.includes('説明');
+            const data = await response.json();
 
-            if (urlMatch && isAskingWhat) {
-                const url = urlMatch[0];
-                let siteInfo = i18n[lang].ai_site_unknown;
-
-                if (url.includes('youtube.com') || url.includes('youtu.be')) siteInfo = i18n[lang].site_yt;
-                else if (url.includes('google.com')) siteInfo = i18n[lang].site_google;
-                else if (url.includes('wikipedia.org')) siteInfo = i18n[lang].site_wiki;
-                else if (url.includes('twitter.com') || url.includes('x.com')) siteInfo = i18n[lang].site_twi;
-                else if (url.includes('github.com')) siteInfo = i18n[lang].site_github;
-
-                response = i18n[lang].ai_site_explainer + "\n" + siteInfo;
-            }
-            else if (lowText.includes('遅い') || lowText.includes('slow')) response = i18n[lang].ai_resp_slow;
-            else if (lowText.includes('動画') || lowText.includes('video') || lowText.includes('youtube')) response = i18n[lang].ai_resp_video;
-            else if (lowText.includes('使い方') || lowText.includes('how') || lowText.includes('やり方')) response = i18n[lang].ai_resp_how;
-            else if (lowText.includes('こんにちは') || lowText.includes('hi') || lowText.includes('hello')) response = i18n[lang].ai_welcome;
-
-            appendMessage('system', response);
-        }, 600);
+            if (typingDiv.parentNode) aiMessages.removeChild(typingDiv);
+            appendMessage('system', data.response);
+        } catch (error) {
+            console.error("AI Fetch Error:", error);
+            if (typingDiv.parentNode) aiMessages.removeChild(typingDiv);
+            const lang = langSelect.value;
+            const errMsg = lang === 'ja' ? "サーバーと通信できませんでした。" : "Could not connect to the server.";
+            appendMessage('system', errMsg);
+        }
     }
 
     function appendMessage(sender, text) {
@@ -284,6 +228,41 @@ document.addEventListener('DOMContentLoaded', () => {
             input.placeholder = "Enter URL or Search Query";
             aiInput.placeholder = i18n.en.ai_placeholder;
         }
+
+        // Re-render changelog if active
+        const activeTab = document.querySelector('.nav-tab.active');
+        if (activeTab && activeTab.dataset.tab === 'changelog-view') {
+            renderChangelog();
+        }
+    }
+
+    let changelogDataCache = null;
+
+    async function renderChangelog() {
+        const container = document.getElementById('changelog-container');
+        const lang = langSelect.value;
+
+        if (!changelogDataCache) {
+            try {
+                const response = await fetch('changelog.json');
+                changelogDataCache = await response.json();
+            } catch (e) {
+                container.innerHTML = '<p style="color:red;">Error loading changelog.</p>';
+                return;
+            }
+        }
+
+        container.innerHTML = changelogDataCache.map(item => `
+            <div class="changelog-item">
+                <div class="changelog-header">
+                    <span class="version-tag">${item.version}</span>
+                    <span class="changelog-date">${item.date}</span>
+                </div>
+                <ul class="changelog-list">
+                    ${item.notes[lang].map(note => `<li>${note}</li>`).join('')}
+                </ul>
+            </div>
+        `).join('');
     }
 
     function processSubmit() {

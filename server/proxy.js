@@ -1,10 +1,24 @@
 const express = require('express');
 const Unblocker = require('unblocker');
+const cors = require('cors');
+const compression = require('compression');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Initialize Gemini AI
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
 // Enable trust proxy to get the real client IP through Render's load balancer
 app.set('trust proxy', true);
+
+// Global Middleware
+app.use(cors());
+app.use(compression());
+app.use(express.json());
 
 // Middleware to capture the real client IP and pass it to unblocker via a temporary header
 app.use((req, res, next) => {
@@ -333,6 +347,38 @@ app.use((req, res, next) => {
 
 // Mount Unblocker and let it handle the requests under /proxy/
 app.use(unblocker);
+
+// --- AI ENDPOINT (Gemini Integration) ---
+app.post('/api/ai', async (req, res) => {
+    const { prompt, lang } = req.body;
+
+    if (!GEMINI_API_KEY) {
+        return res.json({
+            response: lang === 'ja'
+                ? "すみません、AI機能（APIキー）がまだ設定されていません。Renderの設定から GEMINI_API_KEY を追加してね！"
+                : "Sorry, AI features are not configured yet. Please add GEMINI_API_KEY to Render environment variables."
+        });
+    }
+
+    try {
+        const systemPrompt = lang === 'ja'
+            ? "あなたは Antigravity Proxy のアシスタントです。フレンドリーで親切な態度で、ユーザー（特に「ゆう」）を助けてください。サイトのURLが含まれている場合は、そのサイトが何であるか専門的な知識を持って詳しく、かつ簡潔に説明してください。日本語で回答してください。"
+            : "You are the Antigravity Proxy Assistant. Be friendly and helpful, especially to the user 'Yuu'. If a URL is provided, explain what the site is with expert knowledge. Keep responses concise. Reply in English.";
+
+        const fullPrompt = `${systemPrompt}\n\nClient Input: ${prompt}`;
+        const result = await model.generateContent(fullPrompt);
+        const responseText = result.response.text();
+
+        res.json({ response: responseText });
+    } catch (error) {
+        console.error("Gemini Error:", error);
+        res.json({
+            response: lang === 'ja'
+                ? "Geminiとの通信中にエラーが発生しました。時間を置いてもう一度試してみてね！"
+                : "Error communicating with Gemini. Please try again later!"
+        });
+    }
+});
 
 // Root route - Basic Status Page
 app.get('/', (req, res) => {
