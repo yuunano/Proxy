@@ -19,6 +19,7 @@
             <div class="nav-tabs">
                 <button class="nav-tab active" data-tab="proxy-view" data-i18n="tab_proxy">Study</button>
                 <button class="nav-tab" data-tab="usage-view" data-i18n="tab_usage">Notes</button>
+                <button class="nav-tab" data-tab="changelog-view" data-i18n="tab_changelog">Changelog</button>
             </div>
         </div>
         <div class="nav-right">
@@ -178,16 +179,92 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+            <!-- CHANGELOG VIEW -->
+            <section id="changelog-view" class="view-section hidden">
+                <div class="usage-layout">
+                    <h2 data-i18n="changelog_title">Update History</h2>
 
-        <footer class="footer">
-            <nav class="footer-nav">
-                <a href="../TERMS.md" target="_blank">Terms</a>
-                <a href="https://github.com/yuunano/antigravity-proxy" target="_blank">GitHub</a>
-            </nav>
-            <p class="copyright">&copy; 2026 Antigravity Proxy. Educational Purpose Only.</p>
-            <div class="version-badge">v1.4.1</div>
-        </footer>
+                    <div class="changelog-item">
+                        <div class="changelog-header">
+                            <span class="version-tag">v1.5.0</span>
+                            <span class="changelog-date">2026.01.27</span>
+                        </div>
+                        <ul class="changelog-list">
+                            <li data-i18n="v150_1">Added data compression for faster loading</li>
+                            <li data-i18n="v150_2">Externalized sticky scripts for browser caching</li>
+                            <li data-i18n="v150_3">Optimized video streaming compatibility</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-item">
+                        <div class="changelog-header">
+                            <span class="version-tag">v1.4.1</span>
+                            <span class="changelog-date">2026.01.27</span>
+                        </div>
+                        <ul class="changelog-list">
+                            <li data-i18n="v141_1">Added DuckDuckGo Lite for maximum compatibility</li>
+                            <li data-i18n="v141_2">Implemented localized Japanese search results</li>
+                            <li data-i18n="v141_3">Added version badge to footer</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-item">
+                        <div class="changelog-header">
+                            <span class="version-tag">v1.4.0</span>
+                            <span class="changelog-date">2026.01.27</span>
+                        </div>
+                        <ul class="changelog-list">
+                            <li data-i18n="v140_1">Added Search Engine Selector (Google/Bing/DDG)</li>
+                            <li data-i18n="v140_2">Added "Chained Croxy" (Double Proxy) mode</li>
+                            <li data-i18n="v140_3">Improved mobile UI responsiveness</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-item">
+                        <div class="changelog-header">
+                            <span class="version-tag">v1.3.0</span>
+                            <span class="changelog-date">2026.01.25</span>
+                        </div>
+                        <ul class="changelog-list">
+                            <li data-i18n="v130_1">Implemented "Nuclear Click" strategy for better link handling</li>
+                            <li data-i18n="v130_2">Automatic CSP and X-Frame header stripping</li>
+                            <li data-i18n="v130_3">Randomized User-Agent (Anti-Detection)</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-item">
+                        <div class="changelog-header">
+                            <span class="version-tag">v1.2.0</span>
+                            <span class="changelog-date">2026.01.24</span>
+                        </div>
+                        <ul class="changelog-list">
+                            <li data-i18n="v120_1">Multi-language support (JP/EN)</li>
+                            <li data-i18n="v120_2">Dark mode premium UI design</li>
+                            <li data-i18n="v120_3">Added "Quick Links" for popular sites</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-item">
+                        <div class="changelog-header">
+                            <span class="version-tag">v1.0.0</span>
+                            <span class="changelog-date">2026.01.23</span>
+                        </div>
+                        <ul class="changelog-list">
+                            <li data-i18n="v100_1">Initial release of Antigravity Proxy</li>
+                            <li data-i18n="v100_2">Basic Unblocker integration</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="footer">
+                <nav class="footer-nav">
+                    <a href="../TERMS.md" target="_blank">Terms</a>
+                    <a href="https://github.com/yuunano/antigravity-proxy" target="_blank">GitHub</a>
+                </nav>
+                <p class="copyright">&copy; 2026 Antigravity Proxy. Educational Purpose Only.</p>
+                <div class="version-badge">v1.5.0</div>
+            </footer>
     </div>
     <script src="script.js"></script>
 </body>
