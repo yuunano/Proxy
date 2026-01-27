@@ -373,8 +373,8 @@ app.post('/api/ai', async (req, res) => {
 
         const fullPrompt = `${systemPrompt}\n\nClient Input: ${prompt}`;
 
-        // Use the latest flash model
-        const flashModel = new GoogleGenerativeAI(GEMINI_API_KEY).getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Use the fully qualified model name which sometimes helps with regional 404s
+        const flashModel = new GoogleGenerativeAI(GEMINI_API_KEY).getGenerativeModel({ model: "models/gemini-1.5-flash" });
         const result = await flashModel.generateContent(fullPrompt);
         const response = await result.response;
         const text = response.text();
