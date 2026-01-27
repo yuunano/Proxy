@@ -1,5 +1,19 @@
 [
     {
+        "version": "v1.6.0",
+        "date": "2026.01.27",
+        "notes": {
+            "ja": [
+                "AIによる質問回答を追加(Gemini)",
+                "監視ログの追加（管理者用）",
+            ],
+            "en": [
+                "Added AI-powered question answering (Gemini)",
+                "Added monitoring logs (for administrators)",
+            ]
+        }
+    },
+    {
         "version": "v1.5.0",
         "date": "2026.01.27",
         "notes": {
@@ -93,4 +107,5 @@
             ]
         }
     }
+
 ]
