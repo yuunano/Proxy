@@ -77,7 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ai_resp_default: "すみません、その質問にはまだ答えられません。使い方のタブを確認するか、URLを入力してみてください！",
             ai_resp_slow: "プロキシが遅い場合は、サーバーの場所や時間帯が影響している可能性があります。動画の場合は少し待つか、二重プロキシモードを試してね！",
             ai_resp_video: "動画（YouTubeなど）が見れない場合は「Antigravity」モードで、しばらくロードを待ってみてください。内部で特別なパッチを当てています！",
-            ai_resp_how: "「プロキシ」タブで、見たいサイトのURLを入力してGOボタンを押すだけだよ！かんたんでしょ？"
+            ai_resp_how: "「プロキシ」タブで、見たいサイトのURLを入力してGOボタンを押すだけだよ！かんたんでしょ？",
+            ai_site_explainer: "そのサイトについて調べてみたよ！: ",
+            ai_site_unknown: "ごめんね、そのサイトの詳しいことはわからないけど、URLからするとウェブサイトのようだよ。",
+            site_yt: "世界最大の動画共有プラットフォームだよ。音楽や実況、教育動画まで何でもあるよ！",
+            site_google: "世界で最も使われている検索エンジンだよ。知りたいことは何でも教えてくれるね。",
+            site_wiki: "みんなで作る百科事典だよ。難しい用語や歴史を調べるのに便利だね。",
+            site_twi: "今の出来事をリアルタイムで知ることができるSNSだよ。",
+            site_github: "プログラムのコードを保存したり、世界中の開発者と協力したりする場所だよ。"
         },
         en: {
             tab_proxy: "Proxy",
@@ -134,7 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ai_resp_default: "I'm not sure about that. Check the Usage tab or try entering a URL!",
             ai_resp_slow: "If it's slow, try another time or use Double Proxy mode. Server load varies!",
             ai_resp_video: "For videos, stick to 'Antigravity' mode and give it a few seconds to buffer. We have special patches for that!",
-            ai_resp_how: "Just type a URL in the Proxy tab and hit GO. It's that simple!"
+            ai_resp_how: "Just type a URL in the Proxy tab and hit GO. It's that simple!",
+            ai_site_explainer: "I looked into that site!: ",
+            ai_site_unknown: "Sorry, I don't know much about that specific site, but it appears to be a web destination.",
+            site_yt: "The world's largest video sharing platform.",
+            site_google: "The most popular search engine on Earth.",
+            site_wiki: "A free online encyclopedia built by anyone.",
+            site_twi: "A social network for real-time news and microblogging.",
+            site_github: "A platform for hosting code and collaborating with developers."
         }
     };
 
@@ -189,7 +203,22 @@ document.addEventListener('DOMContentLoaded', () => {
             let response = i18n[lang].ai_resp_default;
 
             const lowText = text.toLowerCase();
-            if (lowText.includes('遅い') || lowText.includes('slow')) response = i18n[lang].ai_resp_slow;
+            const urlMatch = text.match(/(https?:\/\/[^\s]+)/g) || text.match(/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+            const isAskingWhat = lowText.includes('なに') || lowText.includes('何') || lowText.includes('what') || lowText.includes('説明');
+
+            if (urlMatch && isAskingWhat) {
+                const url = urlMatch[0];
+                let siteInfo = i18n[lang].ai_site_unknown;
+
+                if (url.includes('youtube.com') || url.includes('youtu.be')) siteInfo = i18n[lang].site_yt;
+                else if (url.includes('google.com')) siteInfo = i18n[lang].site_google;
+                else if (url.includes('wikipedia.org')) siteInfo = i18n[lang].site_wiki;
+                else if (url.includes('twitter.com') || url.includes('x.com')) siteInfo = i18n[lang].site_twi;
+                else if (url.includes('github.com')) siteInfo = i18n[lang].site_github;
+
+                response = i18n[lang].ai_site_explainer + "\n" + siteInfo;
+            }
+            else if (lowText.includes('遅い') || lowText.includes('slow')) response = i18n[lang].ai_resp_slow;
             else if (lowText.includes('動画') || lowText.includes('video') || lowText.includes('youtube')) response = i18n[lang].ai_resp_video;
             else if (lowText.includes('使い方') || lowText.includes('how') || lowText.includes('やり方')) response = i18n[lang].ai_resp_how;
             else if (lowText.includes('こんにちは') || lowText.includes('hi') || lowText.includes('hello')) response = i18n[lang].ai_welcome;
