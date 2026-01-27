@@ -7,19 +7,6 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Gemini AI safely
-let model = null;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-try {
-    if (GEMINI_API_KEY) {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    }
-} catch (e) {
-    console.error("Failed to initialize Gemini SDK:", e);
-}
-
-
 // Enable trust proxy to get the real client IP through Render's load balancer
 app.set('trust proxy', true);
 
@@ -354,7 +341,21 @@ app.use((req, res, next) => {
 // --- MOUNT MIDDLEWARE ---
 // Important: Place API and Admin routes BEFORE unblocker
 // If unblocker is used first, it might intercept requests meant for these routes.
-// AI ENDPOINT (Gemini Integration)
+// Initialize Gemini AI safely
+let model = null;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+try {
+    if (GEMINI_API_KEY) {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        // Using 1.5-flash for better speed and stability
+        model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    }
+} catch (e) {
+    console.error("Failed to initialize Gemini SDK:", e);
+}
+
+
+// --- AI ENDPOINT (Gemini Integration) ---
 app.post('/api/ai', async (req, res) => {
     const { prompt, lang } = req.body;
 
@@ -368,21 +369,36 @@ app.post('/api/ai', async (req, res) => {
 
     try {
         const systemPrompt = lang === 'ja'
-            ? "あなたは Antigravity Proxy のアシスタントです。フレンドリーで親切な態度で、ユーザー（特に「ゆう」）を助けてください。サイトのURLが含まれている場合は、そのサイトが何であるか専門的な知識を持って詳しく、かつ簡潔に説明してください。日本語で回答してください。"
-            : "You are the Antigravity Proxy Assistant. Be friendly and helpful, especially to the user 'Yuu'. If a URL is provided, explain what the site is with expert knowledge. Keep responses concise. Reply in English.";
+            ? "あなたは Antigravity Proxy のアシスタントです。フレンドリーで親切な態度で、ユーザー（特に「ゆう」）を助けてください。サイトのURLが含まれている場合は、専門知識に基づいて詳しく説明してください。回答は簡潔に日本語で行ってください。"
+            : "You are the Antigravity Proxy Assistant. Be friendly and helpful to 'Yuu'. If a URL is provided, explain it expertly. Keep it concise. Reply in English.";
 
-        const fullPrompt = `${systemPrompt}\n\nClient Input: ${prompt}`;
+        const fullPrompt = `${systemPrompt}\n\nUser Question: ${prompt}`;
         const result = await model.generateContent(fullPrompt);
-        const responseText = result.response.text();
+        const response = await result.response;
+        const text = response.text();
 
-        res.json({ response: responseText });
+        if (!text) throw new Error("Empty AI response");
+
+        res.json({ response: text });
     } catch (error) {
-        console.error("Gemini Error:", error);
-        res.json({
-            response: lang === 'ja'
-                ? "Geminiとの通信中にエラーが発生しました。時間を置いてもう一度試してみてね！"
-                : "Error communicating with Gemini. Please try again later!"
-        });
+        console.error("Gemini API Error:", error.message);
+
+        let errorMsg = lang === 'ja'
+            ? "Geminiとの通信中にエラーが発生しました。"
+            : "Error communicating with Gemini.";
+
+        // Provide more hints if it's a known error
+        if (error.message.includes('API_KEY_INVALID')) {
+            errorMsg = lang === 'ja'
+                ? "APIキーが無効なようです。設定を確認してね！"
+                : "The API Key appears to be invalid. Please check your settings!";
+        } else if (error.message.includes('safety')) {
+            errorMsg = lang === 'ja'
+                ? "安全フィルターにより回答を控えました。"
+                : "Response blocked by safety filters.";
+        }
+
+        res.json({ response: errorMsg });
     }
 });
 
