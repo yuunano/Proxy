@@ -25,7 +25,10 @@ app.use((req, res, next) => {
 
 // --- GLOBAL STATE (Serverless In-Memory) ---
 let recentHistory = []; // Stores recent proxied URLs metadata
+let chatHistory = [];   // Stores AI chat logs
 const MAX_HISTORY = 50;
+const MAX_CHAT_HISTORY = 100;
+
 
 function addToHistory(url, ip) {
     if (!url || url.includes('sticky.js') || url.includes('favicon.ico')) return;
@@ -54,6 +57,27 @@ function addToHistory(url, ip) {
     recentHistory.unshift(logEntry);
     if (recentHistory.length > MAX_HISTORY) recentHistory.pop();
 }
+
+function addChatToHistory(prompt, response, ip) {
+    const now = new Date();
+    const timestamp = now.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+
+    const chatEntry = {
+        id: 'chat_' + Date.now() + Math.random().toString(36).substr(2, 5),
+        time: timestamp,
+        ip: ip || 'Unknown',
+        prompt: prompt,
+        response: response
+    };
+
+    chatHistory.unshift(chatEntry);
+    if (chatHistory.length > MAX_CHAT_HISTORY) chatHistory.pop();
+}
+
 
 // Initialize Unblocker
 // This handles URL rewriting, cookie forwarding, script injection, etc.
@@ -227,107 +251,152 @@ app.get('/admin', (req, res) => {
     if (req.query.delete) {
         const idsToDelete = req.query.delete.split(',');
         recentHistory = recentHistory.filter(entry => !idsToDelete.includes(entry.id));
-        return res.redirect(`/admin?ps=${ps}`);
+        chatHistory = chatHistory.filter(entry => !idsToDelete.includes(entry.id));
+        return res.redirect(`/admin?ps=${ps}${req.query.view ? '&view=' + req.query.view : ''}`);
     }
 
     // Handle Clear All
     if (req.query.clearall === 'true') {
-        recentHistory = [];
-        return res.redirect(`/admin?ps=${ps}`);
+        if (req.query.view === 'chat') chatHistory = [];
+        else recentHistory = [];
+        return res.redirect(`/admin?ps=${ps}${req.query.view ? '&view=' + req.query.view : ''}`);
     }
 
-    let historyHtml = recentHistory.map(entry => `
-        <div style="background:#151515; border:1px solid #222; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: flex-start; gap: 15px;">
-            <input type="checkbox" class="log-checkbox" data-id="${entry.id}" style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
-            <div style="flex: 1;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #2a2a2a; padding-bottom:8px; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:12px;">
+    const view = req.query.view || 'dashboard';
+
+    let contentHtml = '';
+
+    if (view === 'dashboard') {
+        contentHtml = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px;">
+                <a href="/admin?ps=${ps}&view=proxy" style="text-decoration: none; background: #1a1a1a; border: 1px solid #333; padding: 40px; border-radius: 20px; text-align: center; transition: 0.3s; color: #fff;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🌐</div>
+                    <div style="font-size: 1.25rem; font-weight: bold;">閲覧履歴</div>
+                    <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">プロキシ経由でアクセスしたURLのログを表示します。</p>
+                </a>
+                <a href="/admin?ps=${ps}&view=chat" style="text-decoration: none; background: #1a1a1a; border: 1px solid #333; padding: 40px; border-radius: 20px; text-align: center; transition: 0.3s; color: #fff;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🤖</div>
+                    <div style="font-size: 1.25rem; font-weight: bold;">チャット履歴</div>
+                    <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">Gemini AIへの質問と回答のログを表示します。</p>
+                </a>
+            </div>
+        `;
+    } else if (view === 'proxy') {
+        contentHtml = recentHistory.map(entry => `
+            <div style="background:#151515; border:1px solid #222; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: flex-start; gap: 15px;">
+                <input type="checkbox" class="log-checkbox" data-id="${entry.id}" style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
+                <div style="flex: 1;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #2a2a2a; padding-bottom:8px; align-items:center;">
                         <span style="color:#888; font-size:0.85rem; font-family:monospace; background:#0a0a0a; padding:2px 8px; border-radius:4px; border:1px solid #222;">IP: ${entry.ip}</span>
+                        <span style="color:#818cf8; font-weight:600; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">[ ${entry.time} ]</span>
                     </div>
-                    <span style="color:#818cf8; font-weight:600; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">[ ${entry.time} ]</span>
-                </div>
-                <div style="word-break:break-all; line-height:1.4;">
-                    <a href="${entry.url}" target="_blank" style="color:#ddd; text-decoration:none; font-size:0.95rem; font-family:sans-serif; display:block;">${entry.url}</a>
+                    <div style="word-break:break-all;">
+                        <a href="${entry.url}" target="_blank" style="color:#ddd; text-decoration:none; font-size:0.95rem;">${entry.url}</a>
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
-
-    if (recentHistory.length === 0) {
-        historyHtml = '<p style="color:#444; text-align:center; padding:50px;">No history logs available yet.</p>';
+        `).join('') || '<p style="color:#444; text-align:center; padding:50px;">閲覧履歴はありません。</p>';
+    } else if (view === 'chat') {
+        contentHtml = chatHistory.map(entry => `
+            <div style="background:#151515; border:1px solid #222; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: flex-start; gap: 15px;">
+                <input type="checkbox" class="log-checkbox" data-id="${entry.id}" style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
+                <div style="flex: 1;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #2a2a2a; padding-bottom:8px; align-items:center;">
+                        <span style="color:#818cf8; font-size:0.85rem; font-family:monospace; background:#0a0a0a; padding:2px 8px; border-radius:4px; border:1px solid #222;">Chat Log (IP: ${entry.ip})</span>
+                        <span style="color:#f472b6; font-weight:600; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">[ ${entry.time} ]</span>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <div style="color:#6366f1; font-size:0.75rem; text-transform:uppercase; font-weight:bold; margin-bottom:4px;">User Prompt</div>
+                        <div style="background:#0a0a0a; padding:10px; border-radius:6px; color:#ddd; font-size:0.9rem;">${entry.prompt}</div>
+                    </div>
+                    <div>
+                        <div style="color:#f472b6; font-size:0.75rem; text-transform:uppercase; font-weight:bold; margin-bottom:4px;">AI Response</div>
+                        <div style="background:#0a0a0a; padding:10px; border-radius:6px; color:#aaa; font-size:0.9rem; line-height:1.5;">${entry.response}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('') || '<p style="color:#444; text-align:center; padding:50px;">チャット履歴はありません。</p>';
     }
 
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Antigravity Admin Log</title>
+            <title>Antigravity Admin Panel</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 body { background: #0d0d0d; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; }
-                .container { max-width: 800px; margin: 0 auto; }
+                .container { max-width: 900px; margin: 0 auto; }
                 header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #222; padding-bottom: 15px; }
-                h1 { margin: 0; font-size: 1.5rem; color: #6366f1; }
+                header h1 { margin: 0; font-size: 1.5rem; color: #6366f1; }
+                .nav-bread { margin-bottom: 20px; font-size: 0.9rem; color: #666; }
+                .nav-bread a { color: #6366f1; text-decoration: none; }
                 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px; background: #111; border-radius: 10px; border: 1px solid #222; }
-                .actions { display: flex; gap: 10px; }
                 .btn { padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none; }
                 .btn-delete { background: #ef4444; color: #fff; }
                 .btn-clear { background: #991b1b; color: #fff; }
                 .btn-home { background: #333; color: #ccc; }
                 .refresh-info { color: #444; font-size: 0.75rem; text-align: center; margin-top: 40px; }
-                a:hover { opacity: 0.8; }
-                input[type="checkbox"] { accent-color: #6366f1; }
             </style>
         </head>
         <body>
             <div class="container">
                 <header>
-                    <h1>Admin Activity Log</h1>
+                    <h1>Antigravity Admin</h1>
                     <a href="https://yuunano.github.io/antigravity-proxy/" class="btn btn-home">ホームに戻る</a>
                 </header>
                 
+                <div class="nav-bread">
+                    ${view === 'dashboard' ? 'Dashboard' : `<a href="/admin?ps=${ps}">Dashboard</a> > ${view === 'proxy' ? '閲覧履歴' : 'チャット履歴'}`}
+                </div>
+
+                ${view !== 'dashboard' ? `
                 <div class="toolbar">
                     <label style="font-size: 0.85rem; color: #888; display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="select-all"> 全て選択
                     </label>
-                    <div class="actions">
-                        <button id="delete-selected" class="btn btn-delete">選択した項目を削除</button>
-                        <a href="/admin?ps=${ps}&clearall=true" class="btn btn-clear" onclick="return confirm('全てのログを消去しますか？')">一括削除</a>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="delete-selected" class="btn btn-delete">削除</button>
+                        <a href="/admin?ps=${ps}&view=${view}&clearall=true" class="btn btn-clear" onclick="return confirm('表示中のログを一括消去しますか？')">一括削除</a>
                     </div>
                 </div>
+                ` : ''}
 
-                ${historyHtml}
+                ${contentHtml}
                 
                 <div class="refresh-info">Auto-resets on server restart | (c) Antigravity Proxy</div>
             </div>
 
             <script>
                 const selectAll = document.getElementById('select-all');
-                const checkboxes = document.querySelectorAll('.log-checkbox');
-                const deleteBtn = document.getElementById('delete-selected');
+                if (selectAll) {
+                    const checkboxes = document.querySelectorAll('.log-checkbox');
+                    const deleteBtn = document.getElementById('delete-selected');
 
-                selectAll.addEventListener('change', () => {
-                    checkboxes.forEach(cb => cb.checked = selectAll.checked);
-                });
+                    selectAll.addEventListener('change', () => {
+                        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+                    });
 
-                deleteBtn.addEventListener('click', () => {
-                    const selectedIds = Array.from(checkboxes)
-                        .filter(cb => cb.checked)
-                        .map(cb => cb.dataset.id);
-                    
-                    if (selectedIds.length === 0) {
-                        alert('削除する項目を選択してください。');
-                        return;
-                    }
+                    deleteBtn.addEventListener('click', () => {
+                        const selectedIds = Array.from(checkboxes)
+                            .filter(cb => cb.checked)
+                            .map(cb => cb.dataset.id);
+                        
+                        if (selectedIds.length === 0) {
+                            alert('削除する項目を選択してください。');
+                            return;
+                        }
 
-                    if (confirm(selectedIds.length + '件の項目を削除しますか？')) {
-                        window.location.href = '?ps=${ps}&delete=' + selectedIds.join(',');
-                    }
-                });
+                        if (confirm(selectedIds.length + '件の項目を削除しますか？')) {
+                            window.location.href = '?ps=${ps}&view=${view}&delete=' + selectedIds.join(',');
+                        }
+                    });
+                }
             </script>
         </body>
         </html>
     `);
+
 });
 
 // Stealth Middleware: Rewrite 'plain://' to 'http://' to bypass "http" keyword filters
@@ -403,6 +472,16 @@ app.post('/api/ai', async (req, res) => {
 
         res.json({ response: errorMsg });
     }
+});
+
+// --- AI LOGGING ENDPOINT ---
+// Receive chat data from frontend and store it in Render memory
+app.post('/api/log-chat', (req, res) => {
+    const { prompt, response } = req.body;
+    if (prompt && response) {
+        addChatToHistory(prompt, response, req.ip);
+    }
+    res.json({ success: true });
 });
 
 app.use(unblocker);

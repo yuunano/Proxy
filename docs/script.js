@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Constants ---
     const PROXY_SERVER_URL = 'https://proxy-7e3b.onrender.com';
     // AI専用のサーバーURL (Cloudflare WorkersのURLをここに入れるよ！)
-    const AI_SERVER_URL = 'https://antigravity-ai.yuunozhikkyou-sabu-1017.workers.dev';
+    const AI_SERVER_URL = 'https://ここに自分のWorkersのURLを入れてね.workers.dev';
     const CUSTOM_PROXY_BASE = PROXY_SERVER_URL + '/proxy/';
 
     // --- Translations ---
@@ -163,6 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (typingDiv.parentNode) aiMessages.removeChild(typingDiv);
             appendMessage('system', data.response);
+
+            // Send log to Render server for admin panel
+            logChatToServer(text, data.response);
         } catch (error) {
             console.error("AI Fetch Error:", error);
             if (typingDiv.parentNode) aiMessages.removeChild(typingDiv);
@@ -173,11 +176,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function appendMessage(sender, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${sender}`;
-        msgDiv.innerHTML = `<p>${text}</p>`;
-        aiMessages.appendChild(msgDiv);
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+        aiMessages.appendChild(div);
         aiMessages.scrollTop = aiMessages.scrollHeight;
+    }
+
+    // --- AI Logging Helpers ---
+    async function logChatToServer(prompt, response) {
+        try {
+            await fetch(`${PROXY_SERVER_URL}/api/log-chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, response })
+            });
+        } catch (e) {
+            console.warn('Chat logging failed:', e);
+        }
     }
 
     // Language Switching
@@ -339,4 +355,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Language (Default Japanese)
     applyLanguage('ja');
 });
-
