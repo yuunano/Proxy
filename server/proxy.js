@@ -39,7 +39,13 @@ const unblocker = new Unblocker({
         }
     ],
     responseMiddleware: [
-        // Inject a script to force links to stay within the proxy (Nuclear "Stop Everything" Logic)
+        // 1. Strip CSP & Frame Options to allow our script to run (CRITICAL for DuckDuckGo Standard)
+        (data) => {
+            delete data.headers['content-security-policy'];
+            delete data.headers['content-security-policy-report-only'];
+            delete data.headers['x-frame-options'];
+        },
+        // 2. Inject a script to force links to stay within the proxy (Nuclear "Stop Everything" Logic)
         (data) => {
             if (data.contentType && data.contentType.includes('text/html')) {
                 const script = `
