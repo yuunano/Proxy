@@ -1,0 +1,26 @@
+{
+  "name": "antigravity-proxy-server",
+  "version": "1.0.0",
+  "description": "Educational Web Proxy Backend",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js",
+    "dev": "node --watch proxy.js"
+  },
+  "keywords": [
+    "proxy",
+    "educational",
+    "nodejs"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "locals": "^0.0.4",
+    "node-fetch": "^3.3.2",
+    "unblocker": "^2.3.1",
+    "@google/generative-ai": "^0.2.0"
+  }
+}

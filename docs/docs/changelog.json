@@ -1,0 +1,96 @@
+[
+    {
+        "version": "v1.5.0",
+        "date": "2026.01.27",
+        "notes": {
+            "ja": [
+                "ロード高速化のためのデータ圧縮を導入",
+                "スクリプトの外出し（キャッシュ化）による最適化",
+                "動画ストリーミングの互換性を向上"
+            ],
+            "en": [
+                "Added data compression for faster loading",
+                "Externalized sticky scripts for browser caching",
+                "Optimized video streaming compatibility"
+            ]
+        }
+    },
+    {
+        "version": "v1.4.1",
+        "date": "2026.01.27",
+        "notes": {
+            "ja": [
+                "軽量版 DuckDuckGo Lite を追加",
+                "検索結果を日本語に固定するように強化",
+                "フッターにバージョン情報を表示"
+            ],
+            "en": [
+                "Added DuckDuckGo Lite for maximum compatibility",
+                "Implemented localized Japanese search results",
+                "Added version badge to footer"
+            ]
+        }
+    },
+    {
+        "version": "v1.4.0",
+        "date": "2026.01.27",
+        "notes": {
+            "ja": [
+                "検索エンジン選択機能（Google/Bing/DDG）",
+                "「二重プロキシ（Chained Croxy）」モードを追加",
+                "スマホ・モバイル端末向けのUI調整"
+            ],
+            "en": [
+                "Added Search Engine Selector (Google/Bing/DDG)",
+                "Added \"Chained Croxy\" (Double Proxy) mode",
+                "Improved mobile UI responsiveness"
+            ]
+        }
+    },
+    {
+        "version": "v1.3.0",
+        "date": "2026.01.25",
+        "notes": {
+            "ja": [
+                "リンク処理を強化する「Nuclear Click」戦略の導入",
+                "CSPおよびX-Frameヘッダーの自動削除",
+                "User-Agentのランダム化（検知回避）"
+            ],
+            "en": [
+                "Implemented \"Nuclear Click\" strategy",
+                "Automatic CSP and X-Frame header stripping",
+                "Randomized User-Agent (Anti-Detection)"
+            ]
+        }
+    },
+    {
+        "version": "v1.2.0",
+        "date": "2026.01.24",
+        "notes": {
+            "ja": [
+                "日本語・英語の多言語対応",
+                "プレミアムなダークモードUIデザイン",
+                "人気サイトへの「クイックリンク」を追加"
+            ],
+            "en": [
+                "Multi-language support (JP/EN)",
+                "Dark mode premium UI design",
+                "Added \"Quick Links\" for popular sites"
+            ]
+        }
+    },
+    {
+        "version": "v1.0.0",
+        "date": "2026.01.23",
+        "notes": {
+            "ja": [
+                "Antigravity Proxy 初版リリース",
+                "Unblockerエンジンによる基本機能の実装"
+            ],
+            "en": [
+                "Initial release of Antigravity Proxy",
+                "Basic Unblocker integration"
+            ]
+        }
+    }
+]
