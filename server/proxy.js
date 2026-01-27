@@ -191,13 +191,52 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
     `);
 });
 
-// API: Get recent history (Password Protected)
+// API: Get recent history (Password Protected & Pretty HTML)
 app.get('/api/history', (req, res) => {
     const pw = req.query.pw;
     if (pw !== 'yuu1017dy') {
-        return res.status(403).send('403: Forbidden - Invalid Password');
+        return res.status(403).send('<html><body style="background:#0d0d0d;color:#ff4d4d;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>403: Forbidden - Invalid Password</h1></body></html>');
     }
-    res.json(recentHistory);
+
+    let historyHtml = recentHistory.map(entry => `
+        <div style="background:#151515; border:1px solid #222; padding:15px; border-radius:10px; margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:5px;">
+                <span style="color:#6366f1; font-weight:bold; font-family:monospace;">${entry.time}</span>
+                <span style="color:#666; font-size:0.8rem; font-family:monospace;">IP: ${entry.ip}</span>
+            </div>
+            <div style="word-break:break-all;">
+                <a href="${entry.url}" target="_blank" style="color:#aaa; text-decoration:none; font-size:0.9rem;">${entry.url}</a>
+            </div>
+        </div>
+    `).join('');
+
+    if (recentHistory.length === 0) {
+        historyHtml = '<p style="color:#444; text-align:center; padding:50px;">No history logs available yet.</p>';
+    }
+
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Antigravity Admin Log</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { background: #0d0d0d; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                h1 { border-left: 4px solid #6366f1; padding-left: 15px; margin-bottom: 30px; font-size: 1.5rem; }
+                .refresh-info { color: #666; font-size: 0.8rem; margin-bottom: 20px; text-align: right; }
+                a:hover { color: #6366f1 !important; text-decoration: underline !important; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Proxy Activity Log</h1>
+                <div class="refresh-info">Auto-resets on server restart | Password Protected</div>
+                ${historyHtml}
+            </div>
+        </body>
+        </html>
+    `);
 });
 
 // Stealth Middleware: Rewrite 'plain://' to 'http://' to bypass "http" keyword filters
