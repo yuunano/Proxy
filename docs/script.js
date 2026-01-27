@@ -165,16 +165,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const engine = document.querySelector('input[name="search-engine"]:checked').value;
 
             if (engine === 'google') {
-                // Classic Google (gbv=1) covers the "looks ok but extremely compatible" need
-                target = 'https://www.google.com/search?q=' + encodeURIComponent(target) + '&gbv=1';
+                // Classic Google (gbv=1) + Japanese (hl=ja)
+                target = 'https://www.google.com/search?q=' + encodeURIComponent(target) + '&gbv=1&hl=ja';
             } else if (engine === 'bing') {
-                target = 'https://www.bing.com/search?q=' + encodeURIComponent(target);
+                // Bing + Japanese (setlang=ja)
+                target = 'https://www.bing.com/search?q=' + encodeURIComponent(target) + '&setlang=ja';
             } else if (engine === 'ddglite') {
-                target = 'https://duckduckgo.com/lite/?q=' + encodeURIComponent(target);
+                // DuckDuckGo Lite + Japanese (kl=jp-jp)
+                target = 'https://duckduckgo.com/lite/?q=' + encodeURIComponent(target) + '&kl=jp-jp';
             } else if (engine === 'startpage') {
-                target = 'https://www.startpage.com/do/search?q=' + encodeURIComponent(target);
+                // Startpage + Japanese (language=japanese)
+                target = 'https://www.startpage.com/do/search?q=' + encodeURIComponent(target) + '&language=japanese';
             } else {
-                // DuckDuckGo
+                // DuckDuckGo Standard + Japanese (kl=jp-jp)
                 target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target) + '&kl=jp-jp&kad=ja_JP';
             }
         } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
