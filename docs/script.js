@@ -17,21 +17,23 @@ document.addEventListener('DOMContentLoaded', () => {
             tab_proxy: "プロキシ",
             tab_usage: "使い方",
             tagline: "重力なんて、ただの提案にすぎない。",
-            mode_custom: "カスタムサーバー (推奨)",
-            mode_croxy: "CroxyProxy (外部)",
+            mode_custom: "Antigravity (独自)",
+            mode_croxy: "Chained Croxy (二重プロキシ)",
             mode_translate: "Google翻訳",
             mode_bing: "Bing翻訳",
             mode_wayback: "Wayback Machine",
             mode_archive: "Archive.today",
             usage_title: "使い方ガイド",
             step1_title: "モード選択",
-            step1_desc: "基本は「カスタムサーバー」を選んでください。",
+            step1_desc: "基本は「Antigravity」を選んでください。",
             step2_title: "URL入力",
             step2_desc: "見たいサイトのURL、または検索ワードを入力。",
             step3_title: "GOを押す",
             step3_desc: "プロキシ経由でサイトにアクセスします。",
+            step4_title: "互換性チェック",
+            step4_desc: "サイトが開かない場合は「二重プロキシ」モードを試してください。",
             alert_title: "⚠️ 重要アドバイス",
-            alert_desc: "カスタムサーバーが繋がらない場合は、すぐに「Google翻訳」や「Bing翻訳」に切り替えてください。",
+            alert_desc: "サイトが開かない場合は「二重プロキシ」や「Google翻訳」を試してください。",
             comparison_title: "モード比較",
             col_mode: "モード",
             col_feature: "特徴",
@@ -46,21 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
             tab_proxy: "Proxy",
             tab_usage: "Usage",
             tagline: "Gravity is just a suggestion.",
-            mode_custom: "Custom Server (Recommended)",
-            mode_croxy: "CroxyProxy (External)",
+            mode_custom: "Antigravity (Custom)",
+            mode_croxy: "Chained Croxy (Double Proxy)",
             mode_translate: "Google Translate",
             mode_bing: "Microsoft Translator",
             mode_wayback: "Wayback Machine",
             mode_archive: "Archive.today",
             usage_title: "How to Use",
             step1_title: "Select Mode",
-            step1_desc: "Choose \"Custom Server\" for the best experience.",
+            step1_desc: "Choose \"Antigravity\" for the best experience.",
             step2_title: "Enter URL",
             step2_desc: "Type a website address or a search keyword.",
             step3_title: "Click GO",
             step3_desc: "Access the site through the proxy.",
+            step4_title: "Compatibility Check",
+            step4_desc: "If a site doesn't load, try the \"Double Proxy\" mode.",
             alert_title: "⚠️ Important Advice",
-            alert_desc: "If Custom Server stops working, switch to Google Translate or Microsoft Translator immediately.",
+            alert_desc: "If Antigravity stops working, switch to Chained Croxy or Google Translate immediately.",
             comparison_title: "Mode Comparison",
             col_mode: "Mode",
             col_feature: "Feature",
@@ -161,9 +165,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const engine = document.querySelector('input[name="search-engine"]:checked').value;
 
             if (engine === 'google') {
-                target = 'https://www.google.com/search?q=' + encodeURIComponent(target);
+                // Classic Google (gbv=1) covers the "looks ok but extremely compatible" need
+                target = 'https://www.google.com/search?q=' + encodeURIComponent(target) + '&gbv=1';
             } else if (engine === 'bing') {
                 target = 'https://www.bing.com/search?q=' + encodeURIComponent(target);
+            } else if (engine === 'startpage') {
+                target = 'https://www.startpage.com/do/search?q=' + encodeURIComponent(target);
             } else {
                 // DuckDuckGo
                 target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target) + '&kl=jp-jp&kad=ja_JP';
@@ -200,14 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 finalUrl = `https://archive.today/newest/${target}`;
                 break;
             case 'croxy':
-                // CroxyProxy doesn't support direct URL passing in plain GET easily without a session
-                // We redirect to their site, or use their search if possible.
-                // For now, simple redirect to home or search if query provided.
-                finalUrl = `https://www.croxyproxy.com/`;
-                if (!isUrl) {
-                    // If it was a search, they have a query param? No, they use a form.
-                    // Just open their site.
-                }
+                // Chain: My Proxy -> CroxyProxy
+                const croxyTarget = "https://www.croxyproxy.com/";
+                finalUrl = CUSTOM_PROXY_BASE + croxyTarget;
                 break;
             default:
                 finalUrl = target;
@@ -215,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log(`Navigating to: ${target} via ${mode} mode`);
 
-        if (mode === 'custom') {
+        if (mode === 'custom' || mode === 'croxy') {
             window.location.href = finalUrl;
         } else {
             window.open(finalUrl, '_blank');
