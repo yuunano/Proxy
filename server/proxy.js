@@ -7,10 +7,18 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Gemini AI
+// Initialize Gemini AI safely
+let model = null;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+try {
+    if (GEMINI_API_KEY) {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    }
+} catch (e) {
+    console.error("Failed to initialize Gemini SDK:", e);
+}
+
 
 // Enable trust proxy to get the real client IP through Render's load balancer
 app.set('trust proxy', true);
@@ -118,10 +126,8 @@ const unblocker = new Unblocker({
 
 
 
-const compression = require('compression');
-app.use(compression());
-
 // --- INTERNAL ROUTES (Fast, No-Proxy) ---
+
 // Moving the huge sticky script to a separate file so it's cached by the browser
 app.get('/proxy-internal/sticky.js', (req, res) => {
     res.set('Content-Type', 'application/javascript');
@@ -345,14 +351,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Mount Unblocker and let it handle the requests under /proxy/
-app.use(unblocker);
-
-// --- AI ENDPOINT (Gemini Integration) ---
+// --- MOUNT MIDDLEWARE ---
+// Important: Place API and Admin routes BEFORE unblocker
+// If unblocker is used first, it might intercept requests meant for these routes.
+// AI ENDPOINT (Gemini Integration)
 app.post('/api/ai', async (req, res) => {
     const { prompt, lang } = req.body;
 
-    if (!GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY || !model) {
         return res.json({
             response: lang === 'ja'
                 ? "すみません、AI機能（APIキー）がまだ設定されていません。Renderの設定から GEMINI_API_KEY を追加してね！"
@@ -379,6 +385,9 @@ app.post('/api/ai', async (req, res) => {
         });
     }
 });
+
+app.use(unblocker);
+
 
 // Root route - Basic Status Page
 app.get('/', (req, res) => {
