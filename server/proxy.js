@@ -50,64 +50,51 @@ const unblocker = new Unblocker({
                         if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = null;
                         if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = null;
 
-                        // --- Proxy Persistence: URL Rewriter ---
-                        function rewriteUrl(url) {
-                            if (!url) return url;
-                            if (url.startsWith(window.location.origin + '/proxy/')) return url;
-                            if (url.startsWith('http')) return window.location.origin + '/proxy/' + url;
-                            return url;
-                        }
-
-                        // 1. Intercept Clicks (Capture Phase - aggressively)
+                        // --- Proxy Persistence: Click Interceptor ---
+                        // Replaces the "rewrite DOM" approach with a "intercept click" approach
+                        
                         document.addEventListener('click', function(e) {
                             const anchor = e.target.closest('a');
+                            
+                            // If it's a link and has a valid href
                             if (anchor && anchor.href) {
-                                // If the link is strictly absolute HTTP/HTTPS and not proxied, force it.
-                                // DuckDuckGo often uses absolute URLs in results.
-                                if (anchor.href.startsWith('http') && !anchor.href.includes('/proxy/')) {
+                                const originalUrl = anchor.href;
+                                
+                                // Check if it needs proxying (is HTTP/HTTPS and not already proxied)
+                                if (originalUrl.startsWith('http') && !originalUrl.includes('/proxy/')) {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    window.location.href = '/proxy/' + anchor.href;
+
+                                    // Stealth: Replace 'http://' with 'plain://' to bypass keyword filters
+                                    let targetUrl = originalUrl;
+                                    if (targetUrl.startsWith('http://')) {
+                                        targetUrl = targetUrl.replace('http://', 'plain://');
+                                    }
+
+                                    // Construct the proxy URL
+                                    const proxyUrl = window.location.origin + '/proxy/' + targetUrl;
+
+                                    console.log('Proxying navigation to:', proxyUrl);
+
+                                    // Handle target="_blank"
+                                    if (anchor.target === '_blank') {
+                                        window.open(proxyUrl, '_blank');
+                                    } else {
+                                        window.location.href = proxyUrl;
+                                    }
                                 }
                             }
-                        }, true);
+                        }, true); // Use Capture phase to ensure we run before other listeners
 
-                        // 2. MutationObserver to rewrite 'href' and 'action' on the fly
-                        // This fixes things before the user even clicks.
-                        const observer = new MutationObserver((mutations) => {
-                            mutations.forEach((mutation) => {
-                                if (mutation.type === 'childList') {
-                                    mutation.addedNodes.forEach((node) => {
-                                        if (node.tagName === 'A') {
-                                            if (node.href && node.href.startsWith('http') && !node.href.includes('/proxy/')) {
-                                                node.href = '/proxy/' + node.href;
-                                            }
-                                            // Handle target="_blank" which might bypass proxy
-                                            if (node.target === '_blank') node.target = '_self'; 
-                                        }
-                                        if (node.tagName === 'FORM') {
-                                            if (node.action && node.action.startsWith('http') && !node.action.includes('/proxy/')) {
-                                                node.action = '/proxy/' + node.action;
-                                            }
-                                        }
-                                        // Also check children if it's a container
-                                        if (node.querySelectorAll) {
-                                            node.querySelectorAll('a[href^="http"]').forEach(a => {
-                                                 if (!a.href.includes('/proxy/')) a.href = '/proxy/' + a.href;
-                                                 if (a.target === '_blank') a.target = '_self';
-                                            });
-                                        }
-                                    });
-                                }
-                            });
-                        });
-                        observer.observe(document, { childList: true, subtree: true });
-
-                        // 3. Monkey-patch window.open
+                        // --- Windows.open patch ---
                         const originalOpen = window.open;
                         window.open = function(url, target, features) {
                             if (url && !url.includes('/proxy/') && url.startsWith('http')) {
-                                return originalOpen('/proxy/' + url, target, features);
+                                let targetUrl = url;
+                                if (targetUrl.startsWith('http://')) {
+                                    targetUrl = targetUrl.replace('http://', 'plain://');
+                                }
+                                return originalOpen('/proxy/' + targetUrl, target, features);
                             }
                             return originalOpen(url, target, features);
                         };
