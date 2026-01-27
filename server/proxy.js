@@ -19,6 +19,13 @@ const unblocker = new Unblocker({
             const randomAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
             data.headers['user-agent'] = randomAgent;
 
+            // Stealth: Add Client Hints to match modern browsers
+            data.headers['sec-ch-ua'] = '"Google Chrome";v="120", "Chromium";v="120", "Not?A_Brand";v="24"';
+            data.headers['sec-ch-ua-mobile'] = '?0';
+            data.headers['sec-ch-ua-platform'] = '"Windows"';
+            data.headers['accept-language'] = 'ja,en-US;q=0.9,en;q=0.8';
+            data.headers['upgrade-insecure-requests'] = '1';
+
             // 2. Hide Proxy Headers (High Anonymity)
             delete data.headers['x-forwarded-for'];
             delete data.headers['via'];
@@ -38,22 +45,65 @@ const unblocker = new Unblocker({
                 const script = `
                 <script>
                     (function() {
-                        // 1. Intercept Click Events
+                        // --- Stealth: Disable WebRTC to prevent IP leaks ---
+                        if (window.RTCPeerConnection) window.RTCPeerConnection = null;
+                        if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = null;
+                        if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = null;
+
+                        // --- Proxy Persistence: URL Rewriter ---
+                        function rewriteUrl(url) {
+                            if (!url) return url;
+                            if (url.startsWith(window.location.origin + '/proxy/')) return url;
+                            if (url.startsWith('http')) return window.location.origin + '/proxy/' + url;
+                            return url;
+                        }
+
+                        // 1. Intercept Clicks (Capture Phase - aggressively)
                         document.addEventListener('click', function(e) {
                             const anchor = e.target.closest('a');
-                            if (anchor && anchor.href && !anchor.href.startsWith(window.location.origin + '/proxy/')) {
-                                e.preventDefault();
-                                const targetUrl = anchor.href;
-                                // Simple check to avoid double-proxying if inherent
-                                if (targetUrl.startsWith('http')) {
-                                    window.location.href = '/proxy/' + targetUrl;
-                                } else {
-                                    window.location.href = targetUrl;
+                            if (anchor && anchor.href) {
+                                // If the link is strictly absolute HTTP/HTTPS and not proxied, force it.
+                                // DuckDuckGo often uses absolute URLs in results.
+                                if (anchor.href.startsWith('http') && !anchor.href.includes('/proxy/')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    window.location.href = '/proxy/' + anchor.href;
                                 }
                             }
                         }, true);
 
-                        // 2. Monkey-patch window.open
+                        // 2. MutationObserver to rewrite 'href' and 'action' on the fly
+                        // This fixes things before the user even clicks.
+                        const observer = new MutationObserver((mutations) => {
+                            mutations.forEach((mutation) => {
+                                if (mutation.type === 'childList') {
+                                    mutation.addedNodes.forEach((node) => {
+                                        if (node.tagName === 'A') {
+                                            if (node.href && node.href.startsWith('http') && !node.href.includes('/proxy/')) {
+                                                node.href = '/proxy/' + node.href;
+                                            }
+                                            // Handle target="_blank" which might bypass proxy
+                                            if (node.target === '_blank') node.target = '_self'; 
+                                        }
+                                        if (node.tagName === 'FORM') {
+                                            if (node.action && node.action.startsWith('http') && !node.action.includes('/proxy/')) {
+                                                node.action = '/proxy/' + node.action;
+                                            }
+                                        }
+                                        // Also check children if it's a container
+                                        if (node.querySelectorAll) {
+                                            node.querySelectorAll('a[href^="http"]').forEach(a => {
+                                                 if (!a.href.includes('/proxy/')) a.href = '/proxy/' + a.href;
+                                                 if (a.target === '_blank') a.target = '_self';
+                                            });
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                        observer.observe(document, { childList: true, subtree: true });
+
+                        // 3. Monkey-patch window.open
                         const originalOpen = window.open;
                         window.open = function(url, target, features) {
                             if (url && !url.includes('/proxy/') && url.startsWith('http')) {
@@ -64,10 +114,10 @@ const unblocker = new Unblocker({
                     })();
                 </script>
                 `;
-                // Append inside <head> or at the end
+                // Append inside <body> or at the end
                 if (data.body && data.body.includes('</body>')) {
                     data.body = data.body.replace('</body>', script + '</body>');
-                } else {
+                } else if (data.body) {
                     data.body += script;
                 }
             }
@@ -131,4 +181,3 @@ app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
     console.log(`Proxy Prefix: /proxy/`);
 });
-
