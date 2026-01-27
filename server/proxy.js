@@ -3,6 +3,9 @@ const Unblocker = require('unblocker');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable trust proxy to get the real client IP through Render's load balancer
+app.set('trust proxy', true);
+
 // --- GLOBAL STATE (Serverless In-Memory) ---
 let recentHistory = []; // Stores recent proxied URLs metadata
 const MAX_HISTORY = 50;
@@ -10,7 +13,7 @@ const MAX_HISTORY = 50;
 function addToHistory(url, ip) {
     if (!url || url.includes('sticky.js') || url.includes('favicon.ico')) return;
 
-    // Format timestamp (JST/Local roughly)
+    // Format timestamp (JST)
     const now = new Date();
     const timestamp = now.toLocaleString('ja-JP', {
         timeZone: 'Asia/Tokyo',
@@ -19,6 +22,7 @@ function addToHistory(url, ip) {
     });
 
     const logEntry = {
+        id: Date.now() + Math.random().toString(36).substr(2, 9),
         time: timestamp,
         ip: ip || 'Unknown',
         url: url
@@ -40,7 +44,6 @@ const unblocker = new Unblocker({
             delete data.headers['x-real-ip'];
 
             // 2. Spoof Referer/Origin based on the target URL
-            // This is functional (required by many sites) rather than just stealthy.
             try {
                 const url = new URL(data.url);
                 const origin = url.origin;
@@ -48,8 +51,8 @@ const unblocker = new Unblocker({
                 data.headers['referer'] = origin + '/';
 
                 // Track this URL for the history feature (include IP)
-                // Render/Proxies store client IP in x-forwarded-for header
-                const clientIp = data.headers['x-forwarded-for'] ? data.headers['x-forwarded-for'].split(',')[0] : '127.0.0.1';
+                // Use the x-forwarded-for from the original request if available
+                const clientIp = data.headers['x-forwarded-for'] ? data.headers['x-forwarded-for'].split(',')[0].trim() : '127.0.0.1';
                 addToHistory(data.url, clientIp);
             } catch (e) {
                 // Fallback
@@ -191,18 +194,27 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
     `);
 });
 
-// API: Get recent history (Password Protected & Pretty HTML)
-app.get('/api/history', (req, res) => {
-    const pw = req.query.pw;
-    if (pw !== 'yuu1017dy') {
+// Admin Route (Password Protected & Pretty HTML)
+app.get('/admin', (req, res) => {
+    const ps = req.query.ps;
+    if (ps !== 'yuu1017dy') {
         return res.status(403).send('<html><body style="background:#0d0d0d;color:#ff4d4d;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>403: Forbidden - Invalid Password</h1></body></html>');
     }
 
+    // Handle Individual Deletion
+    if (req.query.delete) {
+        recentHistory = recentHistory.filter(entry => entry.id !== req.query.delete);
+        return res.redirect(`/admin?ps=${ps}`);
+    }
+
     let historyHtml = recentHistory.map(entry => `
-        <div style="background:#151515; border:1px solid #222; padding:15px; border-radius:10px; margin-bottom:15px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:5px;">
-                <span style="color:#6366f1; font-weight:bold; font-family:monospace;">${entry.time}</span>
-                <span style="color:#666; font-size:0.8rem; font-family:monospace;">IP: ${entry.ip}</span>
+        <div style="background:#151515; border:1px solid #222; padding:15px; border-radius:10px; margin-bottom:15px; position:relative;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:5px; align-items:center;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <a href="/admin?ps=${ps}&delete=${entry.id}" style="background:#e11d48; color:#fff; text-decoration:none; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:bold;" onclick="return confirm('削除しますか？')">Del</a>
+                    <span style="color:#666; font-size:0.8rem; font-family:monospace;">IP: ${entry.ip}</span>
+                </div>
+                <span style="color:#6366f1; font-weight:bold; font-family:monospace; font-size:0.9rem;">${entry.time}</span>
             </div>
             <div style="word-break:break-all;">
                 <a href="${entry.url}" target="_blank" style="color:#aaa; text-decoration:none; font-size:0.9rem;">${entry.url}</a>
@@ -223,15 +235,18 @@ app.get('/api/history', (req, res) => {
             <style>
                 body { background: #0d0d0d; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; }
                 .container { max-width: 800px; margin: 0 auto; }
-                h1 { border-left: 4px solid #6366f1; padding-left: 15px; margin-bottom: 30px; font-size: 1.5rem; }
-                .refresh-info { color: #666; font-size: 0.8rem; margin-bottom: 20px; text-align: right; }
-                a:hover { color: #6366f1 !important; text-decoration: underline !important; }
+                header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #222; padding-bottom: 15px; }
+                h1 { margin: 0; font-size: 1.5rem; color: #6366f1; }
+                .refresh-info { color: #444; font-size: 0.75rem; }
+                a:hover { opacity: 0.8; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>Proxy Activity Log</h1>
-                <div class="refresh-info">Auto-resets on server restart | Password Protected</div>
+                <header>
+                    <h1>Admin Activity Log</h1>
+                    <div class="refresh-info">Auto-resets on server restart</div>
+                </header>
                 ${historyHtml}
             </div>
         </body>
