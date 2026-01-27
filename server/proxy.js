@@ -39,7 +39,7 @@ const unblocker = new Unblocker({
         }
     ],
     responseMiddleware: [
-        // Inject a script to force links to stay within the proxy (Enhanced "Sticky" Logic)
+        // Inject a script to force links to stay within the proxy (Nuclear "Stop Everything" Logic)
         (data) => {
             if (data.contentType && data.contentType.includes('text/html')) {
                 const script = `
@@ -68,48 +68,26 @@ const unblocker = new Unblocker({
                             return originalUrl;
                         }
 
-                        // --- JIT (Just-in-Time) Link Rewriter ---
-                        // Rewrite href *before* the click event happens (on mousedown/touchstart/keydown)
-                        // This avoids race conditions where the browser navigates before we can intercept.
-                        function rewriteAnchor(anchor) {
+                        // --- NUCLEAR EVENT CAPTURE (The "Stop Everything" Approach) ---
+                        
+                        // 1. Click Capture (Window Level)
+                        window.addEventListener('click', function(e) {
+                            const anchor = e.target.closest('a') || e.target.closest('area');
+                            
                             if (anchor && anchor.href) {
-                                // Don't interfere with hash/js links
+                                // Ignore non-navigational links
                                 if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
                                 
                                 const proxyUrl = toProxyUrl(anchor.href);
-                                if (proxyUrl !== anchor.href) {
-                                    // Mutate the DOM immediately!
-                                    anchor.href = proxyUrl;
-                                    // Also rewrite target if needed for consistency, though standard nav handles it
-                                    if (anchor.getAttribute('target') === '_blank') {
-                                        // anchor.target = '_blank'; // Keep original target
-                                    }
-                                }
-                            }
-                        }
-
-                        // Events that precede navigation
-                        ['mousedown', 'touchstart', 'keydown'].forEach(eventType => {
-                            document.addEventListener(eventType, function(e) {
-                                const anchor = e.target.closest('a');
-                                if (anchor) {
-                                    rewriteAnchor(anchor);
-                                }
-                            }, true); // Capture phase!
-                        });
-
-                        // --- Backup: Click Interceptor ---
-                        // Catches anything missed by JIT (e.g. programmatic clicks)
-                        document.addEventListener('click', function(e) {
-                            const anchor = e.target.closest('a');
-                            if (anchor && anchor.href) {
-                                if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
                                 
-                                const proxyUrl = toProxyUrl(anchor.href);
+                                // If the URL needs proxying, FORCE it.
                                 if (proxyUrl !== anchor.href) {
                                     e.preventDefault();
                                     e.stopPropagation();
+                                    e.stopImmediatePropagation(); // Kill other listeners
                                     
+                                    console.log('Nuclear Proxy Intercept: Click ->', proxyUrl);
+
                                     if (anchor.target === '_blank') {
                                         window.open(proxyUrl, '_blank');
                                     } else {
@@ -117,20 +95,34 @@ const unblocker = new Unblocker({
                                     }
                                 }
                             }
-                        }, true);
+                        }, true); // CAPTURE PHASE starts at window!
 
-                        // --- Form Submission Interceptor ---
-                        document.addEventListener('submit', function(e) {
+                        // 2. Submit Capture (Window Level)
+                        window.addEventListener('submit', function(e) {
                             const form = e.target;
                             if (form.action) {
                                 const proxyUrl = toProxyUrl(form.action);
                                 if (proxyUrl !== form.action) {
+                                    // Rewrite action immediately before submit proceeds
+                                    console.log('Nuclear Proxy Intercept: Submit ->', proxyUrl);
                                     form.action = proxyUrl;
+                                    // We don't preventDefault here, just modify the request destination
                                 }
                             }
                         }, true);
 
-                        // --- History API Patch (SPAs) ---
+                        // 3. Keydown Capture (Enter Key)
+                        // Useful for when Enter triggers a JS-based navigation instead of a form submit
+                        window.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') {
+                                // If inside an input that belongs to a form, current submit listener handles it.
+                                // But if it's a standalone input with JS listener... we can't easily predict destination.
+                                // However, we can patch \`window.location\` assignment via Object.defineProperty?
+                                // That's risky. Instead, we rely on the History/Window patches below.
+                            }
+                        }, true);
+
+                        // 4. History API Patch (SPA Navigation)
                         const originalPushState = history.pushState;
                         const originalReplaceState = history.replaceState;
 
@@ -147,7 +139,7 @@ const unblocker = new Unblocker({
                         history.pushState = patchHistoryMethod(originalPushState);
                         history.replaceState = patchHistoryMethod(originalReplaceState);
 
-                        // --- Window.open Patch ---
+                        // 5. Window.open Patch
                         const originalOpen = window.open;
                         window.open = function(url, target, features) {
                             if (url) {
@@ -155,18 +147,12 @@ const unblocker = new Unblocker({
                             }
                             return originalOpen.apply(this, arguments);
                         };
-
-                        // --- Periodic DOM Sweeper ---
-                        // Runs slower now (2s) just to catch very late additions, since JIT handles interaction
-                        setInterval(() => {
-                            document.querySelectorAll('a').forEach(a => {
-                                if (a.href && a.href.startsWith('http') && !isProxied(a.href)) {
-                                    // Optimization: Only rewrite if user is likely not interacting with it
-                                    // Actually, let's just do it. It's safe.
-                                    a.href = toProxyUrl(a.href);
-                                }
-                            });
-                        }, 2000);
+                        
+                        // 6. Location Assignment Patch (Experimental)
+                        try {
+                            // We can't overwrite location directly, but we can catch rapid changes? 
+                            // No, best is to rely on the above.
+                        } catch(e) {}
 
                         // --- Stealth: WebRTC Disable ---
                         if (window.RTCPeerConnection) window.RTCPeerConnection = null;
