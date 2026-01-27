@@ -343,7 +343,7 @@ app.get('/admin', (req, res) => {
             <div class="container">
                 <header>
                     <h1>Antigravity Admin</h1>
-                    <a href="https://yuunano.github.io/antigravity-proxy/" class="btn btn-home">ホームに戻る</a>
+                    <a href="https://yuunano.github.io/Proxy/" class="btn btn-home">ホームに戻る</a>
                 </header>
                 
                 <div class="nav-bread">
@@ -530,3 +530,4 @@ app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
     console.log(`Proxy Prefix: /proxy/`);
 });
+
