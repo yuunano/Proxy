@@ -368,22 +368,14 @@ app.post('/api/ai', async (req, res) => {
 
     try {
         const systemPrompt = lang === 'ja'
-            ? "あなたは Antigravity Proxy のアシスタント、Gravity AIです。フレンドリーで親切な態度で、ユーザー（特に「ゆう」）を助けてください。サイトのURLが含まれている場合は、専門知識に基づいて詳しく説明してください。回答は簡潔に日本語で行ってください。語尾は「〜だよ」「〜だね」など、親しみやすい感じでお願いします。"
-            : "You are the Antigravity Proxy Assistant, Gravity AI. Be friendly and helpful to 'Yuu'. If a URL is provided, explain it expertly. Keep it concise. Reply in English.";
+            ? "あなたは Antigravity Proxy のアシスタント、Gravity AIです。フレンドリーな「ゆう」の友達として助けてね。回答は簡潔に日本語で、語尾は「〜だよ」「〜だね」でお願いします。"
+            : "You are the Antigravity Proxy Assistant, Gravity AI. Be friendly to 'Yuu'. Reply in English and keep it concise.";
 
         const fullPrompt = `${systemPrompt}\n\nClient Input: ${prompt}`;
 
-        let result;
-        try {
-            // Try 1.5-flash first
-            result = await model.generateContent(fullPrompt);
-        } catch (err) {
-            console.warn("Primary model failed, trying gemini-pro...", err.message);
-            // Fallback to stable gemini-pro
-            const fallbackModel = new GoogleGenerativeAI(GEMINI_API_KEY).getGenerativeModel({ model: "gemini-pro" });
-            result = await fallbackModel.generateContent(fullPrompt);
-        }
-
+        // Use the latest flash model
+        const flashModel = new GoogleGenerativeAI(GEMINI_API_KEY).getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await flashModel.generateContent(fullPrompt);
         const response = await result.response;
         const text = response.text();
 
@@ -396,10 +388,15 @@ app.post('/api/ai', async (req, res) => {
             ? `Gemini接続エラー: ${error.message}`
             : `Gemini Connection Error: ${error.message}`;
 
-        if (error.message.includes('User location is not supported')) {
+        // Recognize 404 as a potential Region issue
+        if (error.message.includes('404') || error.message.includes('not found')) {
             errorMsg = lang === 'ja'
-                ? "おっと！Renderサーバーの設置地域がGemini未対応のようです。Renderの設定で地域(Region)を変えると直るかも？"
-                : "The server's region is not supported by Gemini yet.";
+                ? "【原因判明！】Renderのサーバー地域がGemini未対応の場所にあるようです。新しくRenderで『Oregon (US West)』などの地域を選んで作り直すと直る可能性が高いよ！"
+                : "It seems your Render server region is not supported by Gemini. Try recreating the service in 'Oregon (US West)'.";
+        } else if (error.message.includes('User location is not supported')) {
+            errorMsg = lang === 'ja'
+                ? "おっと！この地域からはGeminiが使えません。Renderの地域(Region)設定を確認してね。"
+                : "Your server region is not supported by Gemini.";
         } else if (error.message.includes('API_KEY_INVALID')) {
             errorMsg = lang === 'ja' ? "APIキーが間違っています。設定を見直してね！" : "Invalid API Key.";
         }
