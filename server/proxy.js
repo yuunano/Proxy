@@ -4,16 +4,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- GLOBAL STATE (Serverless In-Memory) ---
-let recentHistory = []; // Stores recent proxied URLs
+let recentHistory = []; // Stores recent proxied URLs metadata
 const MAX_HISTORY = 50;
 
-function addToHistory(url) {
+function addToHistory(url, ip) {
     if (!url || url.includes('sticky.js') || url.includes('favicon.ico')) return;
-    // Keep only unique URLs in current session
-    if (!recentHistory.includes(url)) {
-        recentHistory.unshift(url);
-        if (recentHistory.length > MAX_HISTORY) recentHistory.pop();
-    }
+
+    // Format timestamp (JST/Local roughly)
+    const now = new Date();
+    const timestamp = now.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+
+    const logEntry = {
+        time: timestamp,
+        ip: ip || 'Unknown',
+        url: url
+    };
+
+    recentHistory.unshift(logEntry);
+    if (recentHistory.length > MAX_HISTORY) recentHistory.pop();
 }
 
 // Initialize Unblocker
@@ -35,8 +47,10 @@ const unblocker = new Unblocker({
                 data.headers['origin'] = origin;
                 data.headers['referer'] = origin + '/';
 
-                // Track this URL for the history feature
-                addToHistory(data.url);
+                // Track this URL for the history feature (include IP)
+                // Render/Proxies store client IP in x-forwarded-for header
+                const clientIp = data.headers['x-forwarded-for'] ? data.headers['x-forwarded-for'].split(',')[0] : '127.0.0.1';
+                addToHistory(data.url, clientIp);
             } catch (e) {
                 // Fallback
             }
@@ -177,8 +191,12 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
     `);
 });
 
-// API: Get recent history
+// API: Get recent history (Password Protected)
 app.get('/api/history', (req, res) => {
+    const pw = req.query.pw;
+    if (pw !== 'yuu1017dy') {
+        return res.status(403).send('403: Forbidden - Invalid Password');
+    }
     res.json(recentHistory);
 });
 
