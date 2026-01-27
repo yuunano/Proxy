@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row_bing_feat: "Googleの代替として",
             row_wayback_feat: "消されたサイトも閲覧可",
             changelog_title: "アップデート履歴",
-            ai_welcome: "こんにちは、ゆう！Antigravity Assistantです。何かお手伝いできることはありますか？",
+            ai_welcome: "こんにちは！Antigravity Assistantです。何かお手伝いできることはありますか？",
             ai_placeholder: "質問を入力...",
             ai_err_empty: "メッセージを入力してください。"
         },
@@ -355,3 +355,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Language (Default Japanese)
     applyLanguage('ja');
 });
+
