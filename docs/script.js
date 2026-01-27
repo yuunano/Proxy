@@ -16,10 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiMessages = document.getElementById('ai-messages');
 
     // --- Constants ---
-    // RenderのURL (末尾スラッシュ必須)
     const PROXY_SERVER_URL = 'https://proxy-7e3b.onrender.com';
-    // AI専用のサーバーURL (Vercelデプロイ後にここを書き換えてね！)
-    const AI_SERVER_URL = PROXY_SERVER_URL; // とりあえず最初は同じにしておくよ
+    // AI専用のサーバーURL (Cloudflare WorkersのURLをここに入れるよ！)
+    const AI_SERVER_URL = 'https://ここに自分のWorkersのURLを入れてね.workers.dev';
     const CUSTOM_PROXY_BASE = PROXY_SERVER_URL + '/proxy/';
 
     // --- Translations ---
