@@ -377,25 +377,23 @@ app.post('/api/ai', async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
-        if (!text) throw new Error("Empty AI response");
+        if (!text) throw new Error("AI returned an empty response.");
 
         res.json({ response: text });
     } catch (error) {
-        console.error("Gemini API Error:", error.message);
+        console.error("Gemini API Error:", error);
 
         let errorMsg = lang === 'ja'
-            ? "Geminiとの通信中にエラーが発生しました。"
-            : "Error communicating with Gemini.";
+            ? `Geminiエラー: ${error.message}`
+            : `Gemini Error: ${error.message}`;
 
-        // Provide more hints if it's a known error
+        // Extra hints for typical issues
         if (error.message.includes('API_KEY_INVALID')) {
-            errorMsg = lang === 'ja'
-                ? "APIキーが無効なようです。設定を確認してね！"
-                : "The API Key appears to be invalid. Please check your settings!";
+            errorMsg += (lang === 'ja' ? "\n(APIキーが間違っているようです)" : "\n(Check your API Key)");
         } else if (error.message.includes('safety')) {
-            errorMsg = lang === 'ja'
-                ? "安全フィルターにより回答を控えました。"
-                : "Response blocked by safety filters.";
+            errorMsg = lang === 'ja' ? "内容が安全ポリシーに抵触したため、回答を控えました。" : "Response blocked by safety filters.";
+        } else if (error.message.includes('fetch')) {
+            errorMsg += (lang === 'ja' ? "\n(サーバーがGoogleに接続できません)" : "\n(Server connectivity issue)");
         }
 
         res.json({ response: errorMsg });
