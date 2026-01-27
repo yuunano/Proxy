@@ -177,6 +177,11 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
     `);
 });
 
+// API: Get recent history
+app.get('/api/history', (req, res) => {
+    res.json(recentHistory);
+});
+
 // Stealth Middleware: Rewrite 'plain://' to 'http://' to bypass "http" keyword filters
 app.use((req, res, next) => {
     if (req.url.includes('plain://')) {
@@ -224,11 +229,6 @@ app.get('/', (req, res) => {
 // Explicitly handle 404s for non-proxy routes
 app.use((req, res) => {
     res.status(404).send('404: Not Found');
-});
-
-// API: Get recent history
-app.get('/api/history', (req, res) => {
-    res.json(recentHistory);
 });
 
 app.listen(PORT, () => {
