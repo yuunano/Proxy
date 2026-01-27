@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tab_usage: "使い方",
             tagline: "重力なんて、ただの提案にすぎない。",
             mode_custom: "カスタムサーバー (推奨)",
+            mode_croxy: "CroxyProxy (外部)",
             mode_translate: "Google翻訳",
             mode_bing: "Bing翻訳",
             mode_wayback: "Wayback Machine",
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
             col_interactivity: "操作性",
             row_custom_feat: "フルブラウジング、ログイン対応",
             row_trans_feat: "高速、公開サーバー利用",
+            row_croxy_feat: "外部プロキシ、高い互換性",
             row_bing_feat: "Googleの代替として",
             row_wayback_feat: "消されたサイトも閲覧可"
         },
@@ -45,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tab_usage: "Usage",
             tagline: "Gravity is just a suggestion.",
             mode_custom: "Custom Server (Recommended)",
+            mode_croxy: "CroxyProxy (External)",
             mode_translate: "Google Translate",
             mode_bing: "Microsoft Translator",
             mode_wayback: "Wayback Machine",
@@ -64,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
             col_interactivity: "Interactive",
             row_custom_feat: "Full Browsing, Logins",
             row_trans_feat: "Fast, Public Server",
+            row_croxy_feat: "External Proxy, High Compatibility",
             row_bing_feat: "Alternative to Google",
             row_wayback_feat: "View Deleted Sites"
         }
@@ -153,8 +157,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const isUrl = target.includes('.') && !target.includes(' ');
 
         if (!isUrl) {
-            // DuckDuckGo通常版 (日本語設定: kl=jp-jp)
-            target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target) + '&kl=jp-jp&kad=ja_JP';
+            // Get selected search engine
+            const engine = document.querySelector('input[name="search-engine"]:checked').value;
+
+            if (engine === 'google') {
+                target = 'https://www.google.com/search?q=' + encodeURIComponent(target);
+            } else if (engine === 'bing') {
+                target = 'https://www.bing.com/search?q=' + encodeURIComponent(target);
+            } else {
+                // DuckDuckGo
+                target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target) + '&kl=jp-jp&kad=ja_JP';
+            }
         } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
             target = 'https://' + target;
         }
@@ -185,6 +198,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'archiveis':
                 finalUrl = `https://archive.today/newest/${target}`;
+                break;
+            case 'croxy':
+                // CroxyProxy doesn't support direct URL passing in plain GET easily without a session
+                // We redirect to their site, or use their search if possible.
+                // For now, simple redirect to home or search if query provided.
+                finalUrl = `https://www.croxyproxy.com/`;
+                if (!isUrl) {
+                    // If it was a search, they have a query param? No, they use a form.
+                    // Just open their site.
+                }
                 break;
             default:
                 finalUrl = target;

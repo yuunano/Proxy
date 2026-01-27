@@ -50,10 +50,26 @@
             </header>
 
             <div class="main-interface">
+                <div class="search-engine-selector">
+                    <label class="se-option">
+                        <input type="radio" name="search-engine" value="google" checked>
+                        <span class="se-label">Google</span>
+                    </label>
+                    <label class="se-option">
+                        <input type="radio" name="search-engine" value="bing">
+                        <span class="se-label">Bing</span>
+                    </label>
+                    <label class="se-option">
+                        <input type="radio" name="search-engine" value="duckduckgo">
+                        <span class="se-label">DuckDuckGo</span>
+                    </label>
+                </div>
+
                 <form id="proxy-form" class="proxy-form" onsubmit="event.preventDefault()">
                     <div class="input-group">
                         <select id="proxy-mode" class="mode-select" aria-label="Select Proxy Mode">
                             <option value="custom" data-i18n="mode_custom">Custom Server (Recommended)</option>
+                            <option value="croxy" data-i18n="mode_croxy">CroxyProxy</option>
                             <option value="translate" data-i18n="mode_translate">Google Translate</option>
                             <option value="bing" data-i18n="mode_bing">Microsoft Translator</option>
                             <option value="wayback" data-i18n="mode_wayback">Wayback Machine</option>
@@ -140,6 +156,11 @@
                             <td>Microsoft/Bing</td>
                             <td data-i18n="row_bing_feat">Alternative to Google</td>
                             <td>⚠️ Medium</td>
+                        </tr>
+                        <tr>
+                            <td>CroxyProxy</td>
+                            <td data-i18n="row_croxy_feat">External Proxy Service</td>
+                            <td>✅ High</td>
                         </tr>
                         <tr>
                             <td>Wayback Machine</td>

@@ -167,6 +167,49 @@ body {
     font-family: var(--font-mono);
 }
 
+.search-engine-selector {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.se-option {
+    cursor: pointer;
+    position: relative;
+}
+
+.se-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.se-label {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    background: #151515;
+    border: 1px solid #333;
+    color: #666;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.se-option:hover .se-label {
+    border-color: #555;
+    color: #999;
+}
+
+.se-option input[type="radio"]:checked+.se-label {
+    background: rgba(114, 137, 218, 0.1);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(114, 137, 218, 0.1);
+}
+
 .proxy-form {
     width: 100%;
     max-width: 600px;
@@ -356,6 +399,11 @@ body {
 @media (max-width: 600px) {
     .container {
         padding: 1rem;
+    }
+
+    .search-engine-selector {
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
 
     .top-nav {
