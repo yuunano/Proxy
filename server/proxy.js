@@ -3,6 +3,19 @@ const Unblocker = require('unblocker');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- GLOBAL STATE (Serverless In-Memory) ---
+let recentHistory = []; // Stores recent proxied URLs
+const MAX_HISTORY = 50;
+
+function addToHistory(url) {
+    if (!url || url.includes('sticky.js') || url.includes('favicon.ico')) return;
+    // Keep only unique URLs in current session
+    if (!recentHistory.includes(url)) {
+        recentHistory.unshift(url);
+        if (recentHistory.length > MAX_HISTORY) recentHistory.pop();
+    }
+}
+
 // Initialize Unblocker
 // This handles URL rewriting, cookie forwarding, script injection, etc.
 const unblocker = new Unblocker({
@@ -21,6 +34,9 @@ const unblocker = new Unblocker({
                 const origin = url.origin;
                 data.headers['origin'] = origin;
                 data.headers['referer'] = origin + '/';
+
+                // Track this URL for the history feature
+                addToHistory(data.url);
             } catch (e) {
                 // Fallback
             }
@@ -208,6 +224,11 @@ app.get('/', (req, res) => {
 // Explicitly handle 404s for non-proxy routes
 app.use((req, res) => {
     res.status(404).send('404: Not Found');
+});
+
+// API: Get recent history
+app.get('/api/history', (req, res) => {
+    res.json(recentHistory);
 });
 
 app.listen(PORT, () => {
