@@ -68,11 +68,41 @@ const unblocker = new Unblocker({
                             return originalUrl;
                         }
 
-                        // --- 1. Click Interceptor (Navigation) ---
+                        // --- JIT (Just-in-Time) Link Rewriter ---
+                        // Rewrite href *before* the click event happens (on mousedown/touchstart/keydown)
+                        // This avoids race conditions where the browser navigates before we can intercept.
+                        function rewriteAnchor(anchor) {
+                            if (anchor && anchor.href) {
+                                // Don't interfere with hash/js links
+                                if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
+                                
+                                const proxyUrl = toProxyUrl(anchor.href);
+                                if (proxyUrl !== anchor.href) {
+                                    // Mutate the DOM immediately!
+                                    anchor.href = proxyUrl;
+                                    // Also rewrite target if needed for consistency, though standard nav handles it
+                                    if (anchor.getAttribute('target') === '_blank') {
+                                        // anchor.target = '_blank'; // Keep original target
+                                    }
+                                }
+                            }
+                        }
+
+                        // Events that precede navigation
+                        ['mousedown', 'touchstart', 'keydown'].forEach(eventType => {
+                            document.addEventListener(eventType, function(e) {
+                                const anchor = e.target.closest('a');
+                                if (anchor) {
+                                    rewriteAnchor(anchor);
+                                }
+                            }, true); // Capture phase!
+                        });
+
+                        // --- Backup: Click Interceptor ---
+                        // Catches anything missed by JIT (e.g. programmatic clicks)
                         document.addEventListener('click', function(e) {
                             const anchor = e.target.closest('a');
                             if (anchor && anchor.href) {
-                                // Don't interfere with hash links or javascript:
                                 if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
                                 
                                 const proxyUrl = toProxyUrl(anchor.href);
@@ -89,31 +119,24 @@ const unblocker = new Unblocker({
                             }
                         }, true);
 
-                        // --- 2. Form Submission Interceptor ---
+                        // --- Form Submission Interceptor ---
                         document.addEventListener('submit', function(e) {
                             const form = e.target;
                             if (form.action) {
                                 const proxyUrl = toProxyUrl(form.action);
                                 if (proxyUrl !== form.action) {
-                                    // We can't easily preventDefault and submit manually for forms without breaking things,
-                                    // so we rewrite the action attribute just before submit.
                                     form.action = proxyUrl;
                                 }
                             }
                         }, true);
 
-                        // --- 3. History API Patch (SPAs) ---
+                        // --- History API Patch (SPAs) ---
                         const originalPushState = history.pushState;
                         const originalReplaceState = history.replaceState;
 
                         function patchHistoryMethod(original) {
                             return function(state, unused, url) {
                                 if (url) {
-                                    // If the SPA tries to change URL to something non-proxied (absolute), fix it.
-                                    // Note: Most SPAs use relative URLs, which is fine. 
-                                    // But if they try to set a full URL, we must proxy it.
-                                    // For now, we mainly log, as aggressively changing this might break the SPA's router.
-                                    // But if it's an absolute URL starting with http, we rewrite it.
                                     if (typeof url === 'string' && url.startsWith('http') && !isProxied(url)) {
                                         arguments[2] = toProxyUrl(url);
                                     }
@@ -124,7 +147,7 @@ const unblocker = new Unblocker({
                         history.pushState = patchHistoryMethod(originalPushState);
                         history.replaceState = patchHistoryMethod(originalReplaceState);
 
-                        // --- 4. Window.open Patch ---
+                        // --- Window.open Patch ---
                         const originalOpen = window.open;
                         window.open = function(url, target, features) {
                             if (url) {
@@ -133,22 +156,17 @@ const unblocker = new Unblocker({
                             return originalOpen.apply(this, arguments);
                         };
 
-                        // --- 5. Periodic DOM Sweeper (The "Hammer") ---
-                        // Every 500ms, rewrite all visible links. This handles new content and "Right Click -> Open in New Tab"
+                        // --- Periodic DOM Sweeper ---
+                        // Runs slower now (2s) just to catch very late additions, since JIT handles interaction
                         setInterval(() => {
-                            // Links
                             document.querySelectorAll('a').forEach(a => {
                                 if (a.href && a.href.startsWith('http') && !isProxied(a.href)) {
+                                    // Optimization: Only rewrite if user is likely not interacting with it
+                                    // Actually, let's just do it. It's safe.
                                     a.href = toProxyUrl(a.href);
                                 }
                             });
-                            // Forms
-                            document.querySelectorAll('form').forEach(form => {
-                                if (form.action && form.action.startsWith('http') && !isProxied(form.action)) {
-                                    form.action = toProxyUrl(form.action);
-                                }
-                            });
-                        }, 500);
+                        }, 2000);
 
                         // --- Stealth: WebRTC Disable ---
                         if (window.RTCPeerConnection) window.RTCPeerConnection = null;
