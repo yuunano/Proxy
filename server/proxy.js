@@ -218,21 +218,30 @@ app.get('/admin', (req, res) => {
 
     // Handle Individual Deletion
     if (req.query.delete) {
-        recentHistory = recentHistory.filter(entry => entry.id !== req.query.delete);
+        const idsToDelete = req.query.delete.split(',');
+        recentHistory = recentHistory.filter(entry => !idsToDelete.includes(entry.id));
+        return res.redirect(`/admin?ps=${ps}`);
+    }
+
+    // Handle Clear All
+    if (req.query.clearall === 'true') {
+        recentHistory = [];
         return res.redirect(`/admin?ps=${ps}`);
     }
 
     let historyHtml = recentHistory.map(entry => `
-        <div style="background:#151515; border:1px solid #222; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-            <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #2a2a2a; padding-bottom:8px; align-items:center;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <a href="/admin?ps=${ps}&delete=${entry.id}" style="background:#ef4444; color:#fff; text-decoration:none; padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:bold; transition: background 0.2s;" onclick="return confirm('このログを削除しますか？')">削除</a>
-                    <span style="color:#888; font-size:0.85rem; font-family:monospace; background:#0a0a0a; padding:2px 8px; border-radius:4px; border:1px solid #222;">IP: ${entry.ip}</span>
+        <div style="background:#151515; border:1px solid #222; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: flex-start; gap: 15px;">
+            <input type="checkbox" class="log-checkbox" data-id="${entry.id}" style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
+            <div style="flex: 1;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #2a2a2a; padding-bottom:8px; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="color:#888; font-size:0.85rem; font-family:monospace; background:#0a0a0a; padding:2px 8px; border-radius:4px; border:1px solid #222;">IP: ${entry.ip}</span>
+                    </div>
+                    <span style="color:#818cf8; font-weight:600; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">[ ${entry.time} ]</span>
                 </div>
-                <span style="color:#818cf8; font-weight:600; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">[ ${entry.time} ]</span>
-            </div>
-            <div style="word-break:break-all; line-height:1.4;">
-                <a href="${entry.url}" target="_blank" style="color:#ddd; text-decoration:none; font-size:0.95rem; font-family:sans-serif; display:block;">${entry.url}</a>
+                <div style="word-break:break-all; line-height:1.4;">
+                    <a href="${entry.url}" target="_blank" style="color:#ddd; text-decoration:none; font-size:0.95rem; font-family:sans-serif; display:block;">${entry.url}</a>
+                </div>
             </div>
         </div>
     `).join('');
@@ -250,20 +259,65 @@ app.get('/admin', (req, res) => {
             <style>
                 body { background: #0d0d0d; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; }
                 .container { max-width: 800px; margin: 0 auto; }
-                header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #222; padding-bottom: 15px; }
+                header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #222; padding-bottom: 15px; }
                 h1 { margin: 0; font-size: 1.5rem; color: #6366f1; }
-                .refresh-info { color: #444; font-size: 0.75rem; }
+                .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px; background: #111; border-radius: 10px; border: 1px solid #222; }
+                .actions { display: flex; gap: 10px; }
+                .btn { padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none; }
+                .btn-delete { background: #ef4444; color: #fff; }
+                .btn-clear { background: #991b1b; color: #fff; }
+                .btn-home { background: #333; color: #ccc; }
+                .refresh-info { color: #444; font-size: 0.75rem; text-align: center; margin-top: 40px; }
                 a:hover { opacity: 0.8; }
+                input[type="checkbox"] { accent-color: #6366f1; }
             </style>
         </head>
         <body>
             <div class="container">
                 <header>
                     <h1>Admin Activity Log</h1>
-                    <div class="refresh-info">Auto-resets on server restart</div>
+                    <a href="https://yuunano.github.io/antigravity-proxy/" class="btn btn-home">ホームに戻る</a>
                 </header>
+                
+                <div class="toolbar">
+                    <label style="font-size: 0.85rem; color: #888; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="select-all"> 全て選択
+                    </label>
+                    <div class="actions">
+                        <button id="delete-selected" class="btn btn-delete">選択した項目を削除</button>
+                        <a href="/admin?ps=${ps}&clearall=true" class="btn btn-clear" onclick="return confirm('全てのログを消去しますか？')">一括削除</a>
+                    </div>
+                </div>
+
                 ${historyHtml}
+                
+                <div class="refresh-info">Auto-resets on server restart | (c) Antigravity Proxy</div>
             </div>
+
+            <script>
+                const selectAll = document.getElementById('select-all');
+                const checkboxes = document.querySelectorAll('.log-checkbox');
+                const deleteBtn = document.getElementById('delete-selected');
+
+                selectAll.addEventListener('change', () => {
+                    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+                });
+
+                deleteBtn.addEventListener('click', () => {
+                    const selectedIds = Array.from(checkboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.dataset.id);
+                    
+                    if (selectedIds.length === 0) {
+                        alert('削除する項目を選択してください。');
+                        return;
+                    }
+
+                    if (confirm(selectedIds.length + '件の項目を削除しますか？')) {
+                        window.location.href = '?ps=${ps}&delete=' + selectedIds.join(',');
+                    }
+                });
+            </script>
         </body>
         </html>
     `);

@@ -7,6 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const views = document.querySelectorAll('.view-section');
     const langSelect = document.getElementById('lang-select');
 
+    // --- AI UI Elements ---
+    const aiBubble = document.getElementById('ai-chat-bubble');
+    const aiWindow = document.getElementById('ai-chat-window');
+    const aiClose = document.getElementById('close-ai');
+    const aiSend = document.getElementById('send-ai');
+    const aiInput = document.getElementById('ai-input');
+    const aiMessages = document.getElementById('ai-messages');
+
     // --- Constants ---
     // RenderのURL (末尾スラッシュ必須)
     const PROXY_SERVER_URL = 'https://proxy-7e3b.onrender.com';
@@ -62,7 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
             v120_2: "プレミアムなダークモードUIデザイン",
             v120_3: "人気サイトへの「クイックリンク」を追加",
             v100_1: "Antigravity Proxy 初版リリース",
-            v100_2: "Unblockerエンジンによる基本機能の実装"
+            v100_2: "Unblockerエンジンによる基本機能の実装",
+            ai_welcome: "こんにちは、ゆう！Antigravity Assistantです。何かお手伝いできることはありますか？",
+            ai_placeholder: "質問を入力...",
+            ai_err_empty: "メッセージを入力してください。",
+            ai_resp_default: "すみません、その質問にはまだ答えられません。使い方のタブを確認するか、URLを入力してみてください！",
+            ai_resp_slow: "プロキシが遅い場合は、サーバーの場所や時間帯が影響している可能性があります。動画の場合は少し待つか、二重プロキシモードを試してね！",
+            ai_resp_video: "動画（YouTubeなど）が見れない場合は「Antigravity」モードで、しばらくロードを待ってみてください。内部で特別なパッチを当てています！",
+            ai_resp_how: "「プロキシ」タブで、見たいサイトのURLを入力してGOボタンを押すだけだよ！かんたんでしょ？"
         },
         en: {
             tab_proxy: "Proxy",
@@ -112,7 +127,14 @@ document.addEventListener('DOMContentLoaded', () => {
             v120_2: "Dark mode premium UI design",
             v120_3: "Added \"Quick Links\" for popular sites",
             v100_1: "Initial release of Antigravity Proxy",
-            v100_2: "Basic Unblocker integration"
+            v100_2: "Basic Unblocker integration",
+            ai_welcome: "Hi, I'm Gravity AI! How can I help you today?",
+            ai_placeholder: "Type a message...",
+            ai_err_empty: "Please type something.",
+            ai_resp_default: "I'm not sure about that. Check the Usage tab or try entering a URL!",
+            ai_resp_slow: "If it's slow, try another time or use Double Proxy mode. Server load varies!",
+            ai_resp_video: "For videos, stick to 'Antigravity' mode and give it a few seconds to buffer. We have special patches for that!",
+            ai_resp_how: "Just type a URL in the Proxy tab and hit GO. It's that simple!"
         }
     };
 
@@ -136,6 +158,53 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // --- AI Chat Logic ---
+    aiBubble.addEventListener('click', () => {
+        aiWindow.classList.toggle('hidden');
+    });
+
+    aiClose.addEventListener('click', () => {
+        aiWindow.classList.add('hidden');
+    });
+
+    aiSend.addEventListener('click', () => {
+        handleAiMessage();
+    });
+
+    aiInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAiMessage();
+    });
+
+    function handleAiMessage() {
+        const text = aiInput.value.trim();
+        if (!text) return;
+
+        appendMessage('user', text);
+        aiInput.value = '';
+
+        // Simple Logic Response
+        setTimeout(() => {
+            const lang = langSelect.value;
+            let response = i18n[lang].ai_resp_default;
+
+            const lowText = text.toLowerCase();
+            if (lowText.includes('遅い') || lowText.includes('slow')) response = i18n[lang].ai_resp_slow;
+            else if (lowText.includes('動画') || lowText.includes('video') || lowText.includes('youtube')) response = i18n[lang].ai_resp_video;
+            else if (lowText.includes('使い方') || lowText.includes('how') || lowText.includes('やり方')) response = i18n[lang].ai_resp_how;
+            else if (lowText.includes('こんにちは') || lowText.includes('hi') || lowText.includes('hello')) response = i18n[lang].ai_welcome;
+
+            appendMessage('system', response);
+        }, 600);
+    }
+
+    function appendMessage(sender, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${sender}`;
+        msgDiv.innerHTML = `<p>${text}</p>`;
+        aiMessages.appendChild(msgDiv);
+        aiMessages.scrollTop = aiMessages.scrollHeight;
+    }
 
     // Language Switching
     langSelect.addEventListener('change', () => {
@@ -178,11 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Update placeholders if needed (optional)
+        // Update placeholders
         if (lang === 'ja') {
             input.placeholder = "URL または 検索ワードを入力";
+            aiInput.placeholder = i18n.ja.ai_placeholder;
         } else {
             input.placeholder = "Enter URL or Search Query";
+            aiInput.placeholder = i18n.en.ai_placeholder;
         }
     }
 
@@ -204,19 +275,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const engine = document.querySelector('input[name="search-engine"]:checked').value;
 
             if (engine === 'google') {
-                // Classic Google (gbv=1) + Japanese (hl=ja)
                 target = 'https://www.google.com/search?q=' + encodeURIComponent(target) + '&gbv=1&hl=ja';
             } else if (engine === 'bing') {
-                // Bing + Japanese (setlang=ja)
                 target = 'https://www.bing.com/search?q=' + encodeURIComponent(target) + '&setlang=ja';
             } else if (engine === 'ddglite') {
-                // DuckDuckGo Lite + Japanese (kl=jp-jp)
                 target = 'https://duckduckgo.com/lite/?q=' + encodeURIComponent(target) + '&kl=jp-jp';
             } else if (engine === 'startpage') {
-                // Startpage + Japanese (language=japanese)
                 target = 'https://www.startpage.com/do/search?q=' + encodeURIComponent(target) + '&language=japanese';
             } else {
-                // DuckDuckGo Standard + Japanese (kl=jp-jp)
                 target = 'https://duckduckgo.com/?q=' + encodeURIComponent(target) + '&kl=jp-jp&kad=ja_JP';
             }
         } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
@@ -229,13 +295,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'custom':
                 let base = CUSTOM_PROXY_BASE;
                 if (!base.endsWith('/')) base += '/';
-
-                // Stealth Logic: "http://" という文字列がURLに含まれるとブロックされる場合がある
-                // そのため、http:// を plain:// に置換して送信する（バックエンドで戻す）
                 if (target.startsWith('http://')) {
                     target = target.replace('http://', 'plain://');
                 }
-
                 finalUrl = base + target;
                 break;
             case 'translate':
@@ -251,15 +313,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 finalUrl = `https://archive.today/newest/${target}`;
                 break;
             case 'croxy':
-                // Chain: My Proxy -> CroxyProxy
                 const croxyTarget = "https://www.croxyproxy.com/";
                 finalUrl = CUSTOM_PROXY_BASE + croxyTarget;
                 break;
             default:
                 finalUrl = target;
         }
-
-        console.log(`Navigating to: ${target} via ${mode} mode`);
 
         if (mode === 'custom' || mode === 'croxy') {
             window.location.href = finalUrl;
