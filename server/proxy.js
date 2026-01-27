@@ -116,6 +116,27 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
             }
         }, true);
 
+        // --- XHR & FETCH PATCH (Crucial for Video Steaming/SPAs) ---
+        const originalXhrOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url) {
+            if (url && typeof url === 'string' && url.startsWith('http') && !isProxied(url)) {
+                arguments[1] = toProxyUrl(url);
+            }
+            return originalXhrOpen.apply(this, arguments);
+        };
+
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+            if (typeof input === 'string' && input.startsWith('http') && !isProxied(input)) {
+                input = toProxyUrl(input);
+            } else if (input instanceof Request && input.url.startsWith('http') && !isProxied(input.url)) {
+                // Hard to re-construct Request, but for most simple cases, we can replace the URL
+                const newRequest = new Request(toProxyUrl(input.url), input);
+                return originalFetch.call(this, newRequest, init);
+            }
+            return originalFetch.apply(this, arguments);
+        };
+
         const originalPushState = history.pushState;
         const originalReplaceState = history.replaceState;
         function patchHistoryMethod(original) {

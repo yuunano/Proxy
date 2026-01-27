@@ -9,7 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Constants ---
     // RenderのURL (末尾スラッシュ必須)
-    const CUSTOM_PROXY_BASE = 'https://proxy-7e3b.onrender.com/proxy/';
+    const PROXY_SERVER_URL = 'https://proxy-7e3b.onrender.com';
+    const CUSTOM_PROXY_BASE = PROXY_SERVER_URL + '/proxy/';
 
     // --- Translations ---
     const i18n = {
