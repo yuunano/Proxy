@@ -1,5 +1,20 @@
 [
     {
+        "version": "v1.6.0",
+        "date": "2026.01.28",
+        "notes": {
+            "ja": [
+                "ホームにGeminiを追加",
+                "アドミン用管理パネルを追加",
+            ],
+            "en": [
+                "Added data compression for faster loading",
+                "Externalized sticky scripts for browser caching",
+                "Optimized video streaming compatibility"
+            ]
+        }
+    },
+    {
         "version": "v1.5.0",
         "date": "2026.01.27",
         "notes": {
@@ -93,4 +108,5 @@
             ]
         }
     }
+
 ]
