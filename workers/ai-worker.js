@@ -15,17 +15,17 @@ export default {
             const apiKey = env.GEMINI_API_KEY;
 
             if (!apiKey) {
-                return new Response(JSON.stringify({ response: "Workersの環境変数に GEMINI_API_KEY を設定してね！" }), {
+                return new Response(JSON.stringify({ response: "Workersにキーが設定されてないよ！" }), {
                     headers: { ...corsHeaders, "Content-Type": "application/json" },
                 });
             }
 
-            // APIへのリクエスト（最新の1.5-flashを使用）
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            // APIバージョンを v1 に、モデルを gemini-1.5-flash に固定
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
             const systemPrompt = lang === 'ja'
-                ? "あなたは Antigravity Proxy のアシスタント、Gravity AIです。ゆうの友達として、フレンドリーに助けてね。回答は簡潔に日本語でお願いします。"
-                : "You are the Antigravity Proxy Assistant, Gravity AI. Be friendly to 'Yuu'. Reply in English and keep it concise.";
+                ? "あなたは Antigravity Proxy のアシスタント、Gravity AIです。ゆうの友達として、フレンドリーに助けてね。回答は日本語で、語尾は「〜だよ」「〜だね」でお願い！"
+                : "You are the Antigravity Proxy Assistant, Gravity AI. Be friendly to 'Yuu'. Reply in English.";
 
             const response = await fetch(url, {
                 method: "POST",
@@ -37,29 +37,25 @@ export default {
 
             const data = await response.json();
 
-            // エラーチェックを強化
             if (data.error) {
-                return new Response(JSON.stringify({ response: `Google APIエラー: ${data.error.message} (${data.error.status})` }), {
+                return new Response(JSON.stringify({ response: `Google APIエラー: ${data.error.message}` }), {
                     headers: { ...corsHeaders, "Content-Type": "application/json" },
                 });
             }
 
-            if (!data.candidates || data.candidates.length === 0) {
-                // 安全フィルターでブロックされた場合など
-                const reason = data.promptFeedback?.blockReason || "回答が生成されませんでした（安全フィルター等）";
-                return new Response(JSON.stringify({ response: `AIが回答を控えました。理由: ${reason}` }), {
+            if (data.candidates && data.candidates[0].content) {
+                const text = data.candidates[0].content.parts[0].text;
+                return new Response(JSON.stringify({ response: text }), {
                     headers: { ...corsHeaders, "Content-Type": "application/json" },
                 });
             }
 
-            const text = data.candidates[0].content.parts[0].text;
-
-            return new Response(JSON.stringify({ response: text }), {
+            return new Response(JSON.stringify({ response: "AIが空の回答を返しました。内容を工夫してみて！" }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
 
         } catch (error) {
-            return new Response(JSON.stringify({ response: `Workersシステムエラー: ${error.message}` }), {
+            return new Response(JSON.stringify({ response: `システムエラー: ${error.message}` }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
