@@ -45,38 +45,41 @@ const unblocker = new Unblocker({
                 const script = `
                 <script>
                     (function() {
-                        // --- Stealth: Disable WebRTC to prevent IP leaks ---
-                        if (window.RTCPeerConnection) window.RTCPeerConnection = null;
-                        if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = null;
-                        if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = null;
-
-                        // --- Proxy Persistence: Click Interceptor ---
-                        // Replaces the "rewrite DOM" approach with a "intercept click" approach
+                        const PROXY_PREFIX = '/proxy/';
                         
+                        function isProxied(url) {
+                            return url.includes(PROXY_PREFIX);
+                        }
+
+                        function toProxyUrl(originalUrl) {
+                            if (!originalUrl) return originalUrl;
+                            if (isProxied(originalUrl)) return originalUrl;
+                            if (originalUrl.startsWith(window.location.origin + PROXY_PREFIX)) return originalUrl;
+                            
+                            // Only proxy http(s) links
+                            if (originalUrl.startsWith('http')) {
+                                let target = originalUrl;
+                                // Stealth: Obfuscate http to plain
+                                if (target.startsWith('http://')) {
+                                    target = target.replace('http://', 'plain://');
+                                }
+                                return window.location.origin + PROXY_PREFIX + target;
+                            }
+                            return originalUrl;
+                        }
+
+                        // --- 1. Click Interceptor (Navigation) ---
                         document.addEventListener('click', function(e) {
                             const anchor = e.target.closest('a');
-                            
-                            // If it's a link and has a valid href
                             if (anchor && anchor.href) {
-                                const originalUrl = anchor.href;
+                                // Don't interfere with hash links or javascript:
+                                if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
                                 
-                                // Check if it needs proxying (is HTTP/HTTPS and not already proxied)
-                                if (originalUrl.startsWith('http') && !originalUrl.includes('/proxy/')) {
+                                const proxyUrl = toProxyUrl(anchor.href);
+                                if (proxyUrl !== anchor.href) {
                                     e.preventDefault();
                                     e.stopPropagation();
-
-                                    // Stealth: Replace 'http://' with 'plain://' to bypass keyword filters
-                                    let targetUrl = originalUrl;
-                                    if (targetUrl.startsWith('http://')) {
-                                        targetUrl = targetUrl.replace('http://', 'plain://');
-                                    }
-
-                                    // Construct the proxy URL
-                                    const proxyUrl = window.location.origin + '/proxy/' + targetUrl;
-
-                                    console.log('Proxying navigation to:', proxyUrl);
-
-                                    // Handle target="_blank"
+                                    
                                     if (anchor.target === '_blank') {
                                         window.open(proxyUrl, '_blank');
                                     } else {
@@ -84,20 +87,74 @@ const unblocker = new Unblocker({
                                     }
                                 }
                             }
-                        }, true); // Use Capture phase to ensure we run before other listeners
+                        }, true);
 
-                        // --- Windows.open patch ---
+                        // --- 2. Form Submission Interceptor ---
+                        document.addEventListener('submit', function(e) {
+                            const form = e.target;
+                            if (form.action) {
+                                const proxyUrl = toProxyUrl(form.action);
+                                if (proxyUrl !== form.action) {
+                                    // We can't easily preventDefault and submit manually for forms without breaking things,
+                                    // so we rewrite the action attribute just before submit.
+                                    form.action = proxyUrl;
+                                }
+                            }
+                        }, true);
+
+                        // --- 3. History API Patch (SPAs) ---
+                        const originalPushState = history.pushState;
+                        const originalReplaceState = history.replaceState;
+
+                        function patchHistoryMethod(original) {
+                            return function(state, unused, url) {
+                                if (url) {
+                                    // If the SPA tries to change URL to something non-proxied (absolute), fix it.
+                                    // Note: Most SPAs use relative URLs, which is fine. 
+                                    // But if they try to set a full URL, we must proxy it.
+                                    // For now, we mainly log, as aggressively changing this might break the SPA's router.
+                                    // But if it's an absolute URL starting with http, we rewrite it.
+                                    if (typeof url === 'string' && url.startsWith('http') && !isProxied(url)) {
+                                        arguments[2] = toProxyUrl(url);
+                                    }
+                                }
+                                return original.apply(this, arguments);
+                            };
+                        }
+                        history.pushState = patchHistoryMethod(originalPushState);
+                        history.replaceState = patchHistoryMethod(originalReplaceState);
+
+                        // --- 4. Window.open Patch ---
                         const originalOpen = window.open;
                         window.open = function(url, target, features) {
-                            if (url && !url.includes('/proxy/') && url.startsWith('http')) {
-                                let targetUrl = url;
-                                if (targetUrl.startsWith('http://')) {
-                                    targetUrl = targetUrl.replace('http://', 'plain://');
-                                }
-                                return originalOpen('/proxy/' + targetUrl, target, features);
+                            if (url) {
+                                arguments[0] = toProxyUrl(url);
                             }
-                            return originalOpen(url, target, features);
+                            return originalOpen.apply(this, arguments);
                         };
+
+                        // --- 5. Periodic DOM Sweeper (The "Hammer") ---
+                        // Every 500ms, rewrite all visible links. This handles new content and "Right Click -> Open in New Tab"
+                        setInterval(() => {
+                            // Links
+                            document.querySelectorAll('a').forEach(a => {
+                                if (a.href && a.href.startsWith('http') && !isProxied(a.href)) {
+                                    a.href = toProxyUrl(a.href);
+                                }
+                            });
+                            // Forms
+                            document.querySelectorAll('form').forEach(form => {
+                                if (form.action && form.action.startsWith('http') && !isProxied(form.action)) {
+                                    form.action = toProxyUrl(form.action);
+                                }
+                            });
+                        }, 500);
+
+                        // --- Stealth: WebRTC Disable ---
+                        if (window.RTCPeerConnection) window.RTCPeerConnection = null;
+                        if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = null;
+                        if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = null;
+
                     })();
                 </script>
                 `;
