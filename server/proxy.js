@@ -340,7 +340,7 @@ app.use((req, res, next) => {
 
 // --- MOUNT MIDDLEWARE ---
 // Important: Place API and Admin routes BEFORE unblocker
-// If unblocker is used first, it might intercept requests meant for these routes.
+
 // Initialize Gemini AI safely
 let model = null;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -354,46 +354,54 @@ try {
     console.error("Failed to initialize Gemini SDK:", e);
 }
 
-
-// --- AI ENDPOINT (Gemini Integration) ---
+// AI ENDPOINT (Gemini Integration)
 app.post('/api/ai', async (req, res) => {
     const { prompt, lang } = req.body;
 
     if (!GEMINI_API_KEY || !model) {
         return res.json({
             response: lang === 'ja'
-                ? "すみません、AI機能（APIキー）がまだ設定されていません。Renderの設定から GEMINI_API_KEY を追加してね！"
-                : "Sorry, AI features are not configured yet. Please add GEMINI_API_KEY to Render environment variables."
+                ? "AI設定（APIキー）が見つからないよ。Renderの設定を確認してね！"
+                : "AI features are not configured (missing API Key)."
         });
     }
 
     try {
         const systemPrompt = lang === 'ja'
-            ? "あなたは Antigravity Proxy のアシスタントです。フレンドリーで親切な態度で、ユーザー（特に「ゆう」）を助けてください。サイトのURLが含まれている場合は、専門知識に基づいて詳しく説明してください。回答は簡潔に日本語で行ってください。"
-            : "You are the Antigravity Proxy Assistant. Be friendly and helpful to 'Yuu'. If a URL is provided, explain it expertly. Keep it concise. Reply in English.";
+            ? "あなたは Antigravity Proxy のアシスタント、Gravity AIです。フレンドリーで親切な態度で、ユーザー（特に「ゆう」）を助けてください。サイトのURLが含まれている場合は、専門知識に基づいて詳しく説明してください。回答は簡潔に日本語で行ってください。語尾は「〜だよ」「〜だね」など、親しみやすい感じでお願いします。"
+            : "You are the Antigravity Proxy Assistant, Gravity AI. Be friendly and helpful to 'Yuu'. If a URL is provided, explain it expertly. Keep it concise. Reply in English.";
 
-        const fullPrompt = `${systemPrompt}\n\nUser Question: ${prompt}`;
-        const result = await model.generateContent(fullPrompt);
+        const fullPrompt = `${systemPrompt}\n\nClient Input: ${prompt}`;
+
+        let result;
+        try {
+            // Try 1.5-flash first
+            result = await model.generateContent(fullPrompt);
+        } catch (err) {
+            console.warn("Primary model failed, trying gemini-pro...", err.message);
+            // Fallback to stable gemini-pro
+            const fallbackModel = new GoogleGenerativeAI(GEMINI_API_KEY).getGenerativeModel({ model: "gemini-pro" });
+            result = await fallbackModel.generateContent(fullPrompt);
+        }
+
         const response = await result.response;
         const text = response.text();
 
         if (!text) throw new Error("AI returned an empty response.");
-
         res.json({ response: text });
     } catch (error) {
         console.error("Gemini API Error:", error);
 
         let errorMsg = lang === 'ja'
-            ? `Geminiエラー: ${error.message}`
-            : `Gemini Error: ${error.message}`;
+            ? `Gemini接続エラー: ${error.message}`
+            : `Gemini Connection Error: ${error.message}`;
 
-        // Extra hints for typical issues
-        if (error.message.includes('API_KEY_INVALID')) {
-            errorMsg += (lang === 'ja' ? "\n(APIキーが間違っているようです)" : "\n(Check your API Key)");
-        } else if (error.message.includes('safety')) {
-            errorMsg = lang === 'ja' ? "内容が安全ポリシーに抵触したため、回答を控えました。" : "Response blocked by safety filters.";
-        } else if (error.message.includes('fetch')) {
-            errorMsg += (lang === 'ja' ? "\n(サーバーがGoogleに接続できません)" : "\n(Server connectivity issue)");
+        if (error.message.includes('User location is not supported')) {
+            errorMsg = lang === 'ja'
+                ? "おっと！Renderサーバーの設置地域がGemini未対応のようです。Renderの設定で地域(Region)を変えると直るかも？"
+                : "The server's region is not supported by Gemini yet.";
+        } else if (error.message.includes('API_KEY_INVALID')) {
+            errorMsg = lang === 'ja' ? "APIキーが間違っています。設定を見直してね！" : "Invalid API Key.";
         }
 
         res.json({ response: errorMsg });
