@@ -6,12 +6,26 @@ const PORT = process.env.PORT || 3000;
 // Enable trust proxy to get the real client IP through Render's load balancer
 app.set('trust proxy', true);
 
+// Middleware to capture the real client IP and pass it to unblocker via a temporary header
+app.use((req, res, next) => {
+    if (req.url.startsWith('/proxy/')) {
+        req.headers['x-client-ip'] = req.ip;
+    }
+    next();
+});
+
 // --- GLOBAL STATE (Serverless In-Memory) ---
 let recentHistory = []; // Stores recent proxied URLs metadata
 const MAX_HISTORY = 50;
 
 function addToHistory(url, ip) {
     if (!url || url.includes('sticky.js') || url.includes('favicon.ico')) return;
+
+    // --- FILTER ASSETS & TRACKERS ---
+    const lowerUrl = url.toLowerCase().split('?')[0];
+    const ignoredExtensions = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ico', '.json', '.txt', '.mp4', '.mp3'];
+    if (ignoredExtensions.some(ext => lowerUrl.endsWith(ext))) return;
+    if (url.includes('/t/sl_l') || url.includes('analytics') || url.includes('advertising')) return;
 
     // Format timestamp (JST)
     const now = new Date();
@@ -51,8 +65,9 @@ const unblocker = new Unblocker({
                 data.headers['referer'] = origin + '/';
 
                 // Track this URL for the history feature (include IP)
-                // Use the x-forwarded-for from the original request if available
-                const clientIp = data.headers['x-forwarded-for'] ? data.headers['x-forwarded-for'].split(',')[0].trim() : '127.0.0.1';
+                const clientIp = data.headers['x-client-ip'] || 'Unknown';
+                delete data.headers['x-client-ip']; // Important: Don't send this to the target site!
+
                 addToHistory(data.url, clientIp);
             } catch (e) {
                 // Fallback
@@ -208,16 +223,16 @@ app.get('/admin', (req, res) => {
     }
 
     let historyHtml = recentHistory.map(entry => `
-        <div style="background:#151515; border:1px solid #222; padding:15px; border-radius:10px; margin-bottom:15px; position:relative;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:5px; align-items:center;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <a href="/admin?ps=${ps}&delete=${entry.id}" style="background:#e11d48; color:#fff; text-decoration:none; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:bold;" onclick="return confirm('削除しますか？')">Del</a>
-                    <span style="color:#666; font-size:0.8rem; font-family:monospace;">IP: ${entry.ip}</span>
+        <div style="background:#151515; border:1px solid #222; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #2a2a2a; padding-bottom:8px; align-items:center;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <a href="/admin?ps=${ps}&delete=${entry.id}" style="background:#ef4444; color:#fff; text-decoration:none; padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:bold; transition: background 0.2s;" onclick="return confirm('このログを削除しますか？')">削除</a>
+                    <span style="color:#888; font-size:0.85rem; font-family:monospace; background:#0a0a0a; padding:2px 8px; border-radius:4px; border:1px solid #222;">IP: ${entry.ip}</span>
                 </div>
-                <span style="color:#6366f1; font-weight:bold; font-family:monospace; font-size:0.9rem;">${entry.time}</span>
+                <span style="color:#818cf8; font-weight:600; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">[ ${entry.time} ]</span>
             </div>
-            <div style="word-break:break-all;">
-                <a href="${entry.url}" target="_blank" style="color:#aaa; text-decoration:none; font-size:0.9rem;">${entry.url}</a>
+            <div style="word-break:break-all; line-height:1.4;">
+                <a href="${entry.url}" target="_blank" style="color:#ddd; text-decoration:none; font-size:0.95rem; font-family:sans-serif; display:block;">${entry.url}</a>
             </div>
         </div>
     `).join('');
