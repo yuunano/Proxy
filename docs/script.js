@@ -169,6 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 target = 'https://www.google.com/search?q=' + encodeURIComponent(target) + '&gbv=1';
             } else if (engine === 'bing') {
                 target = 'https://www.bing.com/search?q=' + encodeURIComponent(target);
+            } else if (engine === 'ddglite') {
+                target = 'https://duckduckgo.com/lite/?q=' + encodeURIComponent(target);
             } else if (engine === 'startpage') {
                 target = 'https://www.startpage.com/do/search?q=' + encodeURIComponent(target);
             } else {
