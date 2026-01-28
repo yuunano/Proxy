@@ -78,6 +78,37 @@ function addChatToHistory(prompt, response, ip) {
     if (chatHistory.length > MAX_CHAT_HISTORY) chatHistory.pop();
 }
 
+// --- PERSISTENCE: Cloudflare Workers Sync ---
+const WORKERS_BASE_URL = 'https://antigravity-ai.yuunozhikkyou-sabu-1017.workers.dev';
+
+async function syncStorage(method = 'POST') {
+    try {
+        if (method === 'POST') {
+            await fetch(`${WORKERS_BASE_URL}/api/history`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recentHistory, chatHistory })
+            });
+            console.log(`[${new Date().toLocaleTimeString()}] History backed up to Cloudflare.`);
+        } else {
+            const res = await fetch(`${WORKERS_BASE_URL}/api/history`);
+            const data = await res.json();
+            if (data.recentHistory) recentHistory = data.recentHistory;
+            if (data.chatHistory) chatHistory = data.chatHistory;
+            console.log(`[${new Date().toLocaleTimeString()}] History restored from Cloudflare.`);
+        }
+    } catch (e) {
+        console.error("Storage sync failed:", e.message);
+    }
+}
+
+// Initial pull on start
+syncStorage('GET');
+
+// Save every 5 minutes (300,000 ms)
+setInterval(() => syncStorage('POST'), 5 * 60 * 1000);
+
+
 
 // --- STEALTH & ANONYMITY CONFIG ---
 const USER_AGENTS = [

@@ -355,4 +355,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Language (Default Japanese)
     applyLanguage('ja');
 });
-
