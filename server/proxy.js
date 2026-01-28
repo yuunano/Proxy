@@ -587,40 +587,7 @@ app.post('/api/log-chat', (req, res) => {
 });
 
 
-// --- 404 RESCUE MIDDLEWARE (Final Version) ---
-app.use((req, res, next) => {
-    // 既にプロキシ内、または管理画面・APIなら何もしない
-    if (req.url.startsWith('/proxy/') || req.url.startsWith('/proxy-internal/') || req.url.startsWith('/admin') || req.url.startsWith('/api/')) {
-        return next();
-    }
-
-    const referer = req.headers['referer'] || '';
-    if (referer.includes('/proxy/')) {
-        try {
-            // Refererからターゲットのドメイン（例: https://chatgpt.com）を特定する
-            const parts = referer.split('/proxy/');
-            const targetPart = parts[1];
-            const match = targetPart.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
-
-            if (match) {
-                const protocol = match[1] === 'plain://' ? 'http://' : match[1];
-                const domain = match[2];
-                const targetOrigin = protocol + domain;
-
-                // 救出先のURLを組み立てる (例: /proxy/https://chatgpt.com/cdn/...)
-                let rescueUrl = targetOrigin + req.url;
-                if (rescueUrl.startsWith('http://')) rescueUrl = rescueUrl.replace('http://', 'plain://');
-
-                console.log(`[Rescue] 404 Avoidance: ${req.url} -> ${rescueUrl}`);
-                return res.redirect(`/proxy/${rescueUrl}`);
-            }
-        } catch (e) {
-            console.error("[Rescue Error]", e);
-        }
-    }
-    next();
-});
-
+// --- CLEANUP: Removed 404 Rescue Middleware to stop redirect loops ---
 app.use(unblocker);
 
 
