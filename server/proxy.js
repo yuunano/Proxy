@@ -110,13 +110,24 @@ setInterval(() => syncStorage('POST'), 5 * 60 * 1000);
 
 
 
-// --- STEALTH & ANONYMITY CONFIG ---
-const USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Edge/120.0.0.0'
+// --- STEALTH & ANONYMITY CONFIG (Ver 2.0) ---
+// We match User-Agents with their corresponding Sec-CH-UA headers for perfect browser spoofing
+const BROWSER_FINGERPRINTS = [
+    {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        ch_ua: '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        platform: '"Windows"'
+    },
+    {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
+        ch_ua: '"Not_A Brand";v="8", "Chromium";v="121", "Microsoft Edge";v="121"',
+        platform: '"Windows"'
+    },
+    {
+        ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        ch_ua: '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        platform: '"macOS"'
+    }
 ];
 
 // Initialize Unblocker
@@ -124,45 +135,47 @@ const unblocker = new Unblocker({
     prefix: '/proxy/',
     requestMiddleware: [
         (data) => {
-            // 1. Aggressive Stealth: Strip ALL headers that reveal Proxy/VPN/Datacenter
+            // 1. Nuclear Header Stripping: Kill anything that leaks a datacenter/proxy
             const headersToRemove = [
                 'x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-host',
                 'via', 'x-real-ip', 'client-ip', 'true-client-ip',
-                'x-render-host', 'x-render-request-id', 'x-render-region',
-                'cf-connecting-ip', 'cf-ray', 'cf-ipcountry', 'cf-visitor',
-                'cdn-loop', 'x-amz-cf-id', 'forwarded'
+                'x-render-host', 'x-render-request-id', 'x-render-region', 'x-render-src',
+                'cf-connecting-ip', 'cf-ray', 'cf-ipcountry', 'cf-visitor', 'cf-request-id',
+                'cdn-loop', 'x-amz-cf-id', 'forwarded', 'x-envoy-external-address',
+                'x-requested-with', 'proxy-connection', 'proxy-authorization'
             ];
             headersToRemove.forEach(h => delete data.headers[h]);
 
-            // 2. User-Agent Rotation: Don't look like a script or a single server
-            const randomUA = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-            data.headers['user-agent'] = randomUA;
-
-            // 3. Spoof modern browser hints (Sec-CH-UA)
-            data.headers['sec-ch-ua'] = '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"';
+            // 2. Browser Identity Spoofing (Fingerprinting)
+            const fingerprint = BROWSER_FINGERPRINTS[Math.floor(Math.random() * BROWSER_FINGERPRINTS.length)];
+            data.headers['user-agent'] = fingerprint.ua;
+            data.headers['sec-ch-ua'] = fingerprint.ch_ua;
             data.headers['sec-ch-ua-mobile'] = '?0';
-            data.headers['sec-ch-ua-platform'] = '"Windows"';
+            data.headers['sec-ch-ua-platform'] = fingerprint.platform;
 
-            // 4. Spoof Referer/Origin based on the target URL
+            // 3. Realistic Handshake Headers
+            data.headers['dnt'] = '1';
+            data.headers['sec-fetch-dest'] = 'document';
+            data.headers['sec-fetch-mode'] = 'navigate';
+            data.headers['sec-fetch-site'] = 'same-origin';
+            data.headers['sec-fetch-user'] = '?1';
+            data.headers['upgrade-insecure-requests'] = '1';
+            data.headers['accept-language'] = 'ja,en-US;q=0.9,en;q=0.8';
+
+            // 4. Referer/Origin Spoofing
             try {
                 const url = new URL(data.url);
                 const origin = url.origin;
                 data.headers['origin'] = origin;
-                data.headers['referer'] = origin + '/';
+                if (!data.headers['referer']) {
+                    data.headers['referer'] = origin + '/';
+                }
 
-                // Track this URL for the history feature (using the temporary header we set earlier)
+                // Internal logging Cleanup
                 const clientIp = data.headers['x-client-ip'] || 'Unknown';
-                delete data.headers['x-client-ip']; // IMPORTANT: Strip local logging header before sending to target!
-
+                delete data.headers['x-client-ip'];
                 addToHistory(data.url, clientIp);
-            } catch (e) {
-                // Ignore parsing errors for malformed URLs
-            }
-
-            // 5. Clean up standard headers to look like a direct request
-            data.headers['connection'] = 'keep-alive';
-            data.headers['upgrade-insecure-requests'] = '1';
-            data.headers['accept-language'] = 'ja,en-US;q=0.9,en;q=0.8';
+            } catch (e) { }
         }
     ],
     responseMiddleware: [
