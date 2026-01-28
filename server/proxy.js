@@ -238,8 +238,11 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         function toProxyUrl(originalUrl) {
             if (!originalUrl) return originalUrl;
             if (isProxied(originalUrl)) return originalUrl;
+            
+            // 既にこのサイトのオリジン＋プロキシプレフィックスがついているならそのまま
             if (originalUrl.startsWith(window.location.origin + PROXY_PREFIX)) return originalUrl;
             
+            // httpから始まる絶対パスの処理
             if (originalUrl.startsWith('http')) {
                 let target = originalUrl;
                 if (target.startsWith('http://')) {
@@ -247,14 +250,18 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
                 }
                 return window.location.origin + PROXY_PREFIX + target;
             }
-            // --- NEW: Handle relative paths starting with "/" ---
+            
+            // --- CRITICAL: Handle relative paths starting with "/" ---
+            // これが抜けていたからYouTubeやChatGPTでループが起きていました
             if (originalUrl.startsWith('/') && !originalUrl.startsWith('//')) {
                 const parts = window.location.pathname.split(PROXY_PREFIX);
                 if (parts.length > 1) {
-                    const targetInfo = parts[1]; // e.g., "https://example.com/page"
-                    const match = targetInfo.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+                    const targetPart = parts[1]; // e.g. "https://chatgpt.com/path"
+                    const match = targetPart.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
                     if (match) {
-                        const targetOrigin = (match[1] === 'plain://' ? 'http://' : match[1]) + match[2];
+                        const protocol = match[1] === 'plain://' ? 'http://' : match[1];
+                        const domain = match[2];
+                        const targetOrigin = protocol + domain;
                         return toProxyUrl(targetOrigin + originalUrl);
                     }
                 }
@@ -267,11 +274,10 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
             const anchor = e.target.closest('a') || e.target.closest('area');
             if (anchor && anchor.href) {
                 if (anchor.href.startsWith('javascript:') || anchor.href.startsWith('#')) return;
-                const proxyUrl = toProxyUrl(anchor.href);
+                const proxyUrl = toProxyUrl(anchor.getAttribute('href') || anchor.href);
                 if (proxyUrl !== anchor.href) {
                     e.preventDefault();
                     e.stopPropagation();
-                    e.stopImmediatePropagation();
                     if (anchor.target === '_blank') {
                         window.open(proxyUrl, '_blank');
                     } else {
@@ -284,17 +290,17 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         window.addEventListener('submit', function(e) {
             const form = e.target;
             if (form.action) {
-                const proxyUrl = toProxyUrl(form.action);
+                const proxyUrl = toProxyUrl(form.getAttribute('action') || form.action);
                 if (proxyUrl !== form.action) {
                     form.action = proxyUrl;
                 }
             }
         }, true);
 
-        // --- XHR & FETCH PATCH (Crucial for Video Steaming/SPAs) ---
+        // --- XHR & FETCH PATCH (Relative Path Support Added) ---
         const originalXhrOpen = XMLHttpRequest.prototype.open;
         XMLHttpRequest.prototype.open = function(method, url) {
-            if (url && typeof url === 'string' && url.startsWith('http') && !isProxied(url)) {
+            if (url && typeof url === 'string' && !isProxied(url)) {
                 arguments[1] = toProxyUrl(url);
             }
             return originalXhrOpen.apply(this, arguments);
@@ -302,11 +308,11 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
 
         const originalFetch = window.fetch;
         window.fetch = function(input, init) {
-            if (typeof input === 'string' && input.startsWith('http') && !isProxied(input)) {
+            if (typeof input === 'string' && !isProxied(input)) {
                 input = toProxyUrl(input);
-            } else if (input instanceof Request && input.url.startsWith('http') && !isProxied(input.url)) {
-                // Hard to re-construct Request, but for most simple cases, we can replace the URL
-                const newRequest = new Request(toProxyUrl(input.url), input);
+            } else if (input instanceof Request && !isProxied(input.url)) {
+                const newUrl = toProxyUrl(input.url);
+                const newRequest = new Request(newUrl, input);
                 return originalFetch.call(this, newRequest, init);
             }
             return originalFetch.apply(this, arguments);
