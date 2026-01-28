@@ -79,32 +79,59 @@ function addChatToHistory(prompt, response, ip) {
 }
 
 
+// --- STEALTH & ANONYMITY CONFIG ---
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Edge/120.0.0.0'
+];
+
 // Initialize Unblocker
-// This handles URL rewriting, cookie forwarding, script injection, etc.
 const unblocker = new Unblocker({
-    prefix: '/proxy/', // The base path for the proxy
+    prefix: '/proxy/',
     requestMiddleware: [
         (data) => {
-            // 1. Hide Proxy Headers (High Anonymity)
-            delete data.headers['x-forwarded-for'];
-            delete data.headers['via'];
-            delete data.headers['x-real-ip'];
+            // 1. Aggressive Stealth: Strip ALL headers that reveal Proxy/VPN/Datacenter
+            const headersToRemove = [
+                'x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-host',
+                'via', 'x-real-ip', 'client-ip', 'true-client-ip',
+                'x-render-host', 'x-render-request-id', 'x-render-region',
+                'cf-connecting-ip', 'cf-ray', 'cf-ipcountry', 'cf-visitor',
+                'cdn-loop', 'x-amz-cf-id', 'forwarded'
+            ];
+            headersToRemove.forEach(h => delete data.headers[h]);
 
-            // 2. Spoof Referer/Origin based on the target URL
+            // 2. User-Agent Rotation: Don't look like a script or a single server
+            const randomUA = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+            data.headers['user-agent'] = randomUA;
+
+            // 3. Spoof modern browser hints (Sec-CH-UA)
+            data.headers['sec-ch-ua'] = '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"';
+            data.headers['sec-ch-ua-mobile'] = '?0';
+            data.headers['sec-ch-ua-platform'] = '"Windows"';
+
+            // 4. Spoof Referer/Origin based on the target URL
             try {
                 const url = new URL(data.url);
                 const origin = url.origin;
                 data.headers['origin'] = origin;
                 data.headers['referer'] = origin + '/';
 
-                // Track this URL for the history feature (include IP)
+                // Track this URL for the history feature (using the temporary header we set earlier)
                 const clientIp = data.headers['x-client-ip'] || 'Unknown';
-                delete data.headers['x-client-ip']; // Important: Don't send this to the target site!
+                delete data.headers['x-client-ip']; // IMPORTANT: Strip local logging header before sending to target!
 
                 addToHistory(data.url, clientIp);
             } catch (e) {
-                // Fallback
+                // Ignore parsing errors for malformed URLs
             }
+
+            // 5. Clean up standard headers to look like a direct request
+            data.headers['connection'] = 'keep-alive';
+            data.headers['upgrade-insecure-requests'] = '1';
+            data.headers['accept-language'] = 'ja,en-US;q=0.9,en;q=0.8';
         }
     ],
     responseMiddleware: [
@@ -343,7 +370,7 @@ app.get('/admin', (req, res) => {
             <div class="container">
                 <header>
                     <h1>Antigravity Admin</h1>
-                    <a href="https://yuunano.github.io/Proxy/" class="btn btn-home">ホームに戻る</a>
+                    <a href="https://yuunano.github.io/antigravity-proxy/" class="btn btn-home">ホームに戻る</a>
                 </header>
                 
                 <div class="nav-bread">
@@ -530,4 +557,3 @@ app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
     console.log(`Proxy Prefix: /proxy/`);
 });
-
