@@ -234,15 +234,11 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         function isProxied(url) {
             return url.includes(PROXY_PREFIX);
         }
-
         function toProxyUrl(originalUrl) {
             if (!originalUrl) return originalUrl;
             if (isProxied(originalUrl)) return originalUrl;
-            
-            // 既にこのサイトのオリジン＋プロキシプレフィックスがついているならそのまま
             if (originalUrl.startsWith(window.location.origin + PROXY_PREFIX)) return originalUrl;
             
-            // httpから始まる絶対パスの処理
             if (originalUrl.startsWith('http')) {
                 let target = originalUrl;
                 if (target.startsWith('http://')) {
@@ -251,23 +247,58 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
                 return window.location.origin + PROXY_PREFIX + target;
             }
             
-            // --- CRITICAL: Handle relative paths starting with "/" ---
-            // これが抜けていたからYouTubeやChatGPTでループが起きていました
+            // --- Relative Path Handling ---
             if (originalUrl.startsWith('/') && !originalUrl.startsWith('//')) {
                 const parts = window.location.pathname.split(PROXY_PREFIX);
                 if (parts.length > 1) {
-                    const targetPart = parts[1]; // e.g. "https://chatgpt.com/path"
+                    const targetPart = parts[1];
                     const match = targetPart.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
                     if (match) {
-                        const protocol = match[1] === 'plain://' ? 'http://' : match[1];
-                        const domain = match[2];
-                        const targetOrigin = protocol + domain;
+                        const targetOrigin = (match[1] === 'plain://' ? 'http://' : match[1]) + match[2];
                         return toProxyUrl(targetOrigin + originalUrl);
                     }
                 }
             }
             return originalUrl;
         }
+
+        // --- DOM WATCHER: Intercept dynamically created elements ---
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) { // Element
+                        const tags = ['a', 'img', 'script', 'link', 'source', 'video', 'audio', 'iframe'];
+                        tags.forEach(tag => {
+                            const elements = node.tagName.toLowerCase() === tag ? [node] : node.querySelectorAll(tag);
+                            elements.forEach(el => {
+                                const attr = tag === 'link' || tag === 'a' ? 'href' : 'src';
+                                const val = el.getAttribute(attr);
+                                if (val && !isProxied(val)) {
+                                    el.setAttribute(attr, toProxyUrl(val));
+                                }
+                            });
+                        });
+                    }
+                });
+            });
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+
+        // --- PROPERTY SETTERS: Catch script.src = '...' ---
+        function patchAttribute(proto, attr) {
+            const originalSet = Object.getOwnPropertyDescriptor(proto, attr).set;
+            Object.defineProperty(proto, attr, {
+                set: function(val) {
+                    return originalSet.call(this, toProxyUrl(val));
+                }
+            });
+        }
+        try {
+            patchAttribute(HTMLScriptElement.prototype, 'src');
+            patchAttribute(HTMLImageElement.prototype, 'src');
+            patchAttribute(HTMLLinkElement.prototype, 'href');
+            patchAttribute(HTMLIFrameElement.prototype, 'src');
+        } catch(e) {}
 
         // --- NUCLEAR EVENT CAPTURE ---
         window.addEventListener('click', function(e) {
@@ -587,7 +618,39 @@ app.post('/api/log-chat', (req, res) => {
 });
 
 
-// --- CLEANUP: Removed 404 Rescue Middleware to stop redirect loops ---
+// --- 404 RESCUE MIDDLEWARE (V3: Safety First) ---
+app.use((req, res, next) => {
+    // 既存の重要パスは絶対に救済（ループ）の対象にしない
+    if (req.url.startsWith('/proxy/') || req.url.startsWith('/proxy-internal/') || req.url.startsWith('/admin') || req.url.startsWith('/api/')) {
+        return next();
+    }
+
+    const referer = req.headers['referer'] || '';
+    if (referer.includes('/proxy/')) {
+        try {
+            const parts = referer.split('/proxy/');
+            const targetPart = parts[parts.length - 1]; // Get the actual target from the end
+            const match = targetPart.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+
+            if (match) {
+                const protocol = match[1] === 'plain://' ? 'http://' : match[1];
+                const domain = match[2];
+                const targetOrigin = protocol + domain;
+
+                let rescueUrl = targetOrigin + req.url;
+                if (rescueUrl.startsWith('http://')) rescueUrl = rescueUrl.replace('http://', 'plain://');
+
+                // --- PREVENT INFINITE NESTING ---
+                if (req.url.includes(targetOrigin)) return next();
+
+                console.log(`[Rescue V3] Correcting leaked request: ${req.url} -> ${rescueUrl}`);
+                return res.redirect(`/proxy/${rescueUrl}`);
+            }
+        } catch (e) { }
+    }
+    next();
+});
+
 app.use(unblocker);
 
 
@@ -629,8 +692,14 @@ app.use((req, res) => {
     res.status(404).send('404: Not Found');
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`\n=== Antigravity Proxy Server ===`);
     console.log(`Listening on port ${PORT}`);
     console.log(`Proxy Prefix: /proxy/`);
+});
+
+// --- WEBSOCKET SUPPORT: CRITICAL FOR CHATGPT & LIVE FEATURES ---
+server.on('upgrade', (req, socket, head) => {
+    // Direct upgrade requests to the unblocker engine
+    unblocker.onUpgrade(req, socket, head);
 });
