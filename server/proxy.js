@@ -162,6 +162,12 @@ app.get('/admin', (req, res) => {
         chatHistory = chatHistory.filter(e => !ids.includes(e.id));
         return res.redirect('/admin?ps=' + ps + '&view=' + req.query.view);
     }
+    //一括削除のロジックを追加
+    if (req.query.clearall === 'true') {
+        if (req.query.view === 'chat') chatHistory = [];
+        else recentHistory = [];
+        return res.redirect('/admin?ps=' + ps + '&view=' + req.query.view);
+    }
     const view = req.query.view || 'dashboard';
     const list = view === 'chat' ? chatHistory : recentHistory;
 
