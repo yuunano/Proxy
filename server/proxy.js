@@ -238,17 +238,20 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
             if (!originalUrl) return originalUrl;
             const origin = window.location.origin;
             
+            // --- NEW: Decode HTML entities like &amp; ---
+            let decodedUrl = originalUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+            
             // すでにプロキシ済みの場合は何もしない
-            if (originalUrl.includes(PROXY_PREFIX)) return originalUrl;
+            if (decodedUrl.includes(PROXY_PREFIX)) return decodedUrl;
             
             // // から始まるプロトコル相対パスの処理
-            if (originalUrl.startsWith('//')) {
-                return origin + PROXY_PREFIX + 'https:' + originalUrl;
+            if (decodedUrl.startsWith('//')) {
+                return origin + PROXY_PREFIX + 'https:' + decodedUrl;
             }
             
             // httpから始まる絶対パスの処理
-            if (originalUrl.startsWith('http')) {
-                let target = originalUrl;
+            if (decodedUrl.startsWith('http')) {
+                let target = decodedUrl;
                 if (target.startsWith('http://')) {
                     target = target.replace('http://', 'plain://');
                 }
@@ -256,7 +259,7 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
             }
             
             // / から始まるルート相対パスの処理
-            if (originalUrl.startsWith('/')) {
+            if (decodedUrl.startsWith('/')) {
                 const parts = window.location.pathname.split(PROXY_PREFIX);
                 if (parts.length > 1) {
                     const targetInfo = parts[1];
@@ -264,12 +267,12 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
                     if (match) {
                         const protocol = match[1] === 'plain://' ? 'http://' : match[1];
                         const targetOrigin = protocol + match[2];
-                        return toProxyUrl(targetOrigin + originalUrl);
+                        return toProxyUrl(targetOrigin + decodedUrl);
                     }
                 }
             }
             
-            return originalUrl; // relative paths like "abc.js" are handled by the browser naturally
+            return decodedUrl;
         }
 
         // --- DOM WATCHER: Intercept dynamically created elements ---
@@ -628,9 +631,9 @@ app.post('/api/log-chat', (req, res) => {
 });
 
 
-// --- 404 RESCUE MIDDLEWARE (V3: Safety First) ---
+// --- 404 RESCUE MIDDLEWARE (V4: Final Stable) ---
 app.use((req, res, next) => {
-    // 既存の重要パスは絶対に救済（ループ）の対象にしない
+    // Skip internal paths
     if (req.url.startsWith('/proxy/') || req.url.startsWith('/proxy-internal/') || req.url.startsWith('/admin') || req.url.startsWith('/api/')) {
         return next();
     }
@@ -639,7 +642,7 @@ app.use((req, res, next) => {
     if (referer.includes('/proxy/')) {
         try {
             const parts = referer.split('/proxy/');
-            const targetPart = parts[parts.length - 1]; // Get the actual target from the end
+            const targetPart = parts[parts.length - 1];
             const match = targetPart.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
 
             if (match) {
@@ -650,12 +653,9 @@ app.use((req, res, next) => {
                 let rescueUrl = targetOrigin + req.url;
                 if (rescueUrl.startsWith('http://')) rescueUrl = rescueUrl.replace('http://', 'plain://');
 
-                // --- PREVENT INFINITE NESTING ---
-
                 const finalPath = `/proxy/${rescueUrl}`;
 
-                // --- CRITICAL LOOP PREVENTION ---
-                // If the reconstructed URL is basically what we just came from, don't redirect
+                // --- PREVENT INFINITE NESTING ---
                 if (req.url === finalPath || referer.endsWith(finalPath)) {
                     return next();
                 }
