@@ -36,7 +36,6 @@ function addChatToHistory(prompt, response, ip) {
     if (chatHistory.length > MAX_CHAT_HISTORY) chatHistory.pop();
 }
 
-// Persistence
 const WORKERS_BASE_URL = 'https://antigravity-ai.yuunozhikkyou-sabu-1017.workers.dev';
 async function syncStorage(method = 'POST') {
     try {
@@ -53,16 +52,12 @@ async function syncStorage(method = 'POST') {
 syncStorage('GET');
 setInterval(() => syncStorage('POST'), 5 * 60 * 1000);
 
-// --- URL CLEANER & STEALTH RESTORE ---
-// This is CRITICAL. It fixes 400 errors and translates 'plain://' back to 'http://'
+// --- URL CLEANER & PROTOCOL RESTORE ---
 app.use((req, res, next) => {
     if (req.url.startsWith('/proxy/')) {
-        // Fix &amp; leaks and restore protocol
+        // Fix &amp; and restore http (Fixes 400 Bad Request)
         let fixed = req.url.replace(/&amp;/g, '&').replace('plain://', 'http://');
-        if (fixed !== req.url) {
-            req.url = fixed;
-        }
-        // Capture IP
+        if (fixed !== req.url) req.url = fixed;
         req.headers['x-client-ip'] = req.ip;
     }
     next();
@@ -132,7 +127,8 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         const oOpen = XMLHttpRequest.prototype.open;
         XMLHttpRequest.prototype.open = function(m, u) { if (u && typeof u === 'string' && !u.includes(PROXY_PREFIX)) arguments[1] = toProxyUrl(u); return oOpen.apply(this, arguments); };
         const oFetch = window.fetch;
-        window.fetch = function(i, n) { if (typeof i === 'string' && !i.includes(PROXY_PREFIX)) i = toProxyUrl(i); return oFetch.apply(this, i, n); };
+        window.fetch = function(i, n) { if (typeof i === 'string' && !i.includes(PROXY_PREFIX)) i = toProxyUrl(i); return oFetch.apply(this, arguments); };
+        if (window.RTCPeerConnection) window.RTCPeerConnection = null;
     })();
     `);
 });
@@ -144,17 +140,16 @@ app.get('/admin', (req, res) => {
         const ids = req.query.delete.split(',');
         recentHistory = recentHistory.filter(e => !ids.includes(e.id));
         chatHistory = chatHistory.filter(e => !ids.includes(e.id));
-        return res.redirect(`/admin?ps=${ps}&view=${req.query.view}`);
+        return res.redirect('/admin?ps=' + ps + '&view=' + req.query.view);
     }
     const view = req.query.view || 'dashboard';
     const list = view === 'chat' ? chatHistory : recentHistory;
-    res.send(\`<body style="background:#0d0d0d;color:#fff;font-family:sans-serif;padding:20px;">
-        <h1>Admin Panel [\${view}]</h1>
-        <a href="?ps=\${ps}">Dashboard</a> | <a href="?ps=\${ps}&view=proxy">Proxy</a> | <a href="?ps=\${ps}&view=chat">Chat</a>
-        <div style="margin-top:20px;">\${list.map(e => \`<div><input type="checkbox" class="cb" data-id="\${e.id}"> \${e.time}: \${view==='chat' ? 'Q: '+e.prompt : e.url}</div>\`).join('')}</div>
-        <button onclick="del()" style="margin-top:20px;padding:10px;background:#ef4444;color:#fff;border:none;cursor:pointer;">Delete Selected</button>
-        <script>function del(){const ids=Array.from(document.querySelectorAll('.cb:checked')).map(c=>c.dataset.id);if(ids.length)window.location.href='?ps=\${ps}&view=\${view}&delete='+ids.join(',');}</script>
-    </body>\`);
+    let html = '<h1>Admin Panel [' + view + ']</h1>';
+    html += '<a href="?ps=' + ps + '">Dashboard</a> | <a href="?ps=' + ps + '&view=proxy">Proxy</a> | <a href="?ps=' + ps + '&view=chat">Chat</a>';
+    html += '<div style="margin-top:20px;">' + list.map(e => '<div><input type="checkbox" class="cb" data-id="' + e.id + '"> ' + e.time + ': ' + (view === 'chat' ? e.prompt : e.url) + '</div>').join('') + '</div>';
+    html += '<button onclick="del()" style="margin-top:20px;padding:10px;background:#ef4444;color:#fff;border:none;cursor:pointer;">Delete Selected</button>';
+    html += '<script>function del(){const ids=Array.from(document.querySelectorAll(".cb:checked")).map(c=>c.dataset.id);if(ids.length)window.location.href="?ps=' + ps + '&view=' + view + '&delete="+ids.join(",");}</script>';
+    res.send('<body style="background:#0d0d0d;color:#fff;font-family:sans-serif;padding:20px;">' + html + '</body>');
 });
 
 app.post('/api/ai', async (req, res) => {
@@ -165,7 +160,7 @@ app.post('/api/ai', async (req, res) => {
         const genAI = new GoogleGenerativeAI(key);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
-        res.json({ response: await result.response.text() });
+        res.json({ response: result.response.text() });
     } catch (e) { res.json({ response: "Error: " + e.message }); }
 });
 
@@ -182,4 +177,5 @@ app.get('/', (req, res) => {
     res.send('<h1>Antigravity Proxy Online</h1>');
 });
 
-app.listen(PORT, () => console.log(`Active on ${ PORT }`));
+const server = app.listen(PORT, () => console.log(`Active on ${PORT}`));
+server.on('upgrade', (req, socket, head) => unblocker.onUpgrade(req, socket, head));
