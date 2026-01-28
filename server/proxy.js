@@ -236,30 +236,40 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         }
         function toProxyUrl(originalUrl) {
             if (!originalUrl) return originalUrl;
-            if (isProxied(originalUrl)) return originalUrl;
-            if (originalUrl.startsWith(window.location.origin + PROXY_PREFIX)) return originalUrl;
+            const origin = window.location.origin;
             
+            // すでにプロキシ済みの場合は何もしない
+            if (originalUrl.includes(PROXY_PREFIX)) return originalUrl;
+            
+            // // から始まるプロトコル相対パスの処理
+            if (originalUrl.startsWith('//')) {
+                return origin + PROXY_PREFIX + 'https:' + originalUrl;
+            }
+            
+            // httpから始まる絶対パスの処理
             if (originalUrl.startsWith('http')) {
                 let target = originalUrl;
                 if (target.startsWith('http://')) {
                     target = target.replace('http://', 'plain://');
                 }
-                return window.location.origin + PROXY_PREFIX + target;
+                return origin + PROXY_PREFIX + target;
             }
             
-            // --- Relative Path Handling ---
-            if (originalUrl.startsWith('/') && !originalUrl.startsWith('//')) {
+            // / から始まるルート相対パスの処理
+            if (originalUrl.startsWith('/')) {
                 const parts = window.location.pathname.split(PROXY_PREFIX);
                 if (parts.length > 1) {
-                    const targetPart = parts[1];
-                    const match = targetPart.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+                    const targetInfo = parts[1];
+                    const match = targetInfo.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
                     if (match) {
-                        const targetOrigin = (match[1] === 'plain://' ? 'http://' : match[1]) + match[2];
+                        const protocol = match[1] === 'plain://' ? 'http://' : match[1];
+                        const targetOrigin = protocol + match[2];
                         return toProxyUrl(targetOrigin + originalUrl);
                     }
                 }
             }
-            return originalUrl;
+            
+            return originalUrl; // relative paths like "abc.js" are handled by the browser naturally
         }
 
         // --- DOM WATCHER: Intercept dynamically created elements ---
@@ -641,10 +651,17 @@ app.use((req, res, next) => {
                 if (rescueUrl.startsWith('http://')) rescueUrl = rescueUrl.replace('http://', 'plain://');
 
                 // --- PREVENT INFINITE NESTING ---
-                if (req.url.includes(targetOrigin)) return next();
 
-                console.log(`[Rescue V3] Correcting leaked request: ${req.url} -> ${rescueUrl}`);
-                return res.redirect(`/proxy/${rescueUrl}`);
+                const finalPath = `/proxy/${rescueUrl}`;
+
+                // --- CRITICAL LOOP PREVENTION ---
+                // If the reconstructed URL is basically what we just came from, don't redirect
+                if (req.url === finalPath || referer.endsWith(finalPath)) {
+                    return next();
+                }
+
+                console.log(`[Rescue V4] Correcting: ${req.url} (via ${domain})`);
+                return res.redirect(finalPath);
             }
         } catch (e) { }
     }
