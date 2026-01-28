@@ -36,6 +36,7 @@ function addChatToHistory(prompt, response, ip) {
     if (chatHistory.length > MAX_CHAT_HISTORY) chatHistory.pop();
 }
 
+// Persistence
 const WORKERS_BASE_URL = 'https://antigravity-ai.yuunozhikkyou-sabu-1017.workers.dev';
 async function syncStorage(method = 'POST') {
     try {
@@ -47,95 +48,91 @@ async function syncStorage(method = 'POST') {
             if (data.recentHistory) recentHistory = data.recentHistory;
             if (data.chatHistory) chatHistory = data.chatHistory;
         }
-    } catch (e) { console.error("Sync failed:", e.message); }
+    } catch (e) { }
 }
 syncStorage('GET');
 setInterval(() => syncStorage('POST'), 5 * 60 * 1000);
 
-// Initialize Unblocker with minimal settings
+// --- URL CLEANER & STEALTH RESTORE ---
+// This is CRITICAL. It fixes 400 errors and translates 'plain://' back to 'http://'
+app.use((req, res, next) => {
+    if (req.url.startsWith('/proxy/')) {
+        // Fix &amp; leaks and restore protocol
+        let fixed = req.url.replace(/&amp;/g, '&').replace('plain://', 'http://');
+        if (fixed !== req.url) {
+            req.url = fixed;
+        }
+        // Capture IP
+        req.headers['x-client-ip'] = req.ip;
+    }
+    next();
+});
+
 const unblocker = new Unblocker({
     prefix: '/proxy/',
     requestMiddleware: [
         (data) => {
-            // Remove proxy-leaking headers
             delete data.headers['x-forwarded-for'];
             delete data.headers['via'];
             delete data.headers['x-real-ip'];
-
-            // Log IP and URL
-            const clientIp = data.headers['x-client-ip'] || 'Unknown';
-            delete data.headers['x-client-ip'];
-            addToHistory(data.url, clientIp);
+            try {
+                const url = new URL(data.url);
+                data.headers['origin'] = url.origin;
+                data.headers['referer'] = url.origin + '/';
+                const ip = data.headers['x-client-ip'] || 'Unknown';
+                delete data.headers['x-client-ip'];
+                addToHistory(data.url, ip);
+            } catch (e) { }
         }
     ],
     responseMiddleware: [
         (data) => {
-            // Strip security headers so our scripts work
             delete data.headers['content-security-policy'];
             delete data.headers['x-frame-options'];
-
-            // Allow media streaming
             data.headers['access-control-allow-origin'] = '*';
             data.headers['access-control-expose-headers'] = 'Content-Length, Content-Range, Accept-Ranges';
         },
         (data) => {
             if (data.contentType && data.contentType.includes('text/html')) {
-                const scriptTag = `<script src="/proxy-internal/sticky.js"></script>`;
-                if (data.body && data.body.includes('<head>')) {
-                    data.body = data.body.replace('<head>', '<head>' + scriptTag);
-                } else if (data.body) {
-                    data.body += scriptTag;
-                }
+                const script = `<script src="/proxy-internal/sticky.js"></script>`;
+                if (data.body && data.body.includes('<head>')) data.body = data.body.replace('<head>', '<head>' + script);
+                else if (data.body) data.body += script;
             }
         }
     ]
 });
-
-// Middleware to capture IP
-app.use((req, res, next) => {
-    if (req.url.startsWith('/proxy/')) req.headers['x-client-ip'] = req.ip;
-    next();
-});
-
-// --- INTERNAL ROUTES ---
 
 app.get('/proxy-internal/sticky.js', (req, res) => {
     res.set('Content-Type', 'application/javascript');
     res.send(`
     (function() {
         const PROXY_PREFIX = '/proxy/';
-        function toProxyUrl(url) {
-            if (!url || typeof url !== 'string') return url;
-            // Clean HTML Entities like &amp; (CRITICAL for 400 errors)
-            let d = url.replace(/&amp;/g, '&');
-            if (d.includes(PROXY_PREFIX)) return d;
+        function toProxyUrl(u) {
+            if (!u || typeof u !== 'string' || u.includes(PROXY_PREFIX)) return u;
+            let d = u.replace(/&amp;/g, '&');
+            if (d.startsWith('//')) d = 'https:' + d;
             if (d.startsWith('http')) {
-                let target = d;
-                if (target.startsWith('http://')) target = target.replace('http://', 'plain://');
-                return window.location.origin + PROXY_PREFIX + target;
+                if (d.startsWith('http://')) d = d.replace('http://', 'plain://');
+                return window.location.origin + PROXY_PREFIX + d;
             }
-            // Handle relative paths
             if (d.startsWith('/') && !d.startsWith('//')) {
-                const parts = window.location.pathname.split(PROXY_PREFIX);
-                if (parts.length > 1) {
-                    const match = parts[1].match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
-                    if (match) return toProxyUrl((match[1] === 'plain://' ? 'http://' : match[1]) + match[2] + d);
-                }
+                const m = window.location.pathname.split(PROXY_PREFIX)[1]?.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+                if (m) return toProxyUrl((m[1]==='plain://'?'http://':m[1]) + m[2] + d);
             }
             return d;
         }
-        window.addEventListener('click', function(e) {
+        window.addEventListener('click', e => {
             const a = e.target.closest('a');
             if (a && a.href && !a.href.startsWith('javascript:') && !a.href.startsWith('#')) {
                 const p = toProxyUrl(a.href);
-                if (p !== a.href) { e.preventDefault(); if (a.target === '_blank') window.open(p, '_blank'); else window.location.href = p; }
+                if (p !== a.href) { e.preventDefault(); if (a.target === '_blank') window.open(p); else window.location.href = p; }
             }
         }, true);
-        window.addEventListener('submit', function(e) { if (e.target.action) e.target.action = toProxyUrl(e.target.action); }, true);
+        window.addEventListener('submit', e => { if (e.target.action) e.target.action = toProxyUrl(e.target.action); }, true);
         const oOpen = XMLHttpRequest.prototype.open;
         XMLHttpRequest.prototype.open = function(m, u) { if (u && typeof u === 'string' && !u.includes(PROXY_PREFIX)) arguments[1] = toProxyUrl(u); return oOpen.apply(this, arguments); };
         const oFetch = window.fetch;
-        window.fetch = function(input, init) { if (typeof input === 'string' && !input.includes(PROXY_PREFIX)) input = toProxyUrl(input); return oFetch.apply(this, arguments); };
+        window.fetch = function(i, n) { if (typeof i === 'string' && !i.includes(PROXY_PREFIX)) i = toProxyUrl(i); return oFetch.apply(this, i, n); };
     })();
     `);
 });
@@ -150,20 +147,25 @@ app.get('/admin', (req, res) => {
         return res.redirect(`/admin?ps=${ps}&view=${req.query.view}`);
     }
     const view = req.query.view || 'dashboard';
-    if (view === 'dashboard') return res.send(`<body style="background:#0d0d0d;color:#fff;"><a href="?ps=${ps}&view=proxy">🌐 Proxy Logs</a><br><a href="?ps=${ps}&view=chat">🤖 Chat Logs</a></body>`);
     const list = view === 'chat' ? chatHistory : recentHistory;
-    res.send(`<body style="background:#0d0d0d;color:#fff;"><h1>Admin [${view}]</h1>` + list.map(e => `<div><input type="checkbox" class="cb" data-id="${e.id}"> ${e.time}: ${view === 'chat' ? 'Prompt: ' + e.prompt : e.url}</div>`).join('') + `<script>function del(){const ids=Array.from(document.querySelectorAll('.cb:checked')).map(c=>c.dataset.id);if(ids.length)window.location.href='?ps=${ps}&view=${view}&delete='+ids.join(',');}</script><button onclick="del()">Delete</button></body>`);
+    res.send(\`<body style="background:#0d0d0d;color:#fff;font-family:sans-serif;padding:20px;">
+        <h1>Admin Panel [\${view}]</h1>
+        <a href="?ps=\${ps}">Dashboard</a> | <a href="?ps=\${ps}&view=proxy">Proxy</a> | <a href="?ps=\${ps}&view=chat">Chat</a>
+        <div style="margin-top:20px;">\${list.map(e => \`<div><input type="checkbox" class="cb" data-id="\${e.id}"> \${e.time}: \${view==='chat' ? 'Q: '+e.prompt : e.url}</div>\`).join('')}</div>
+        <button onclick="del()" style="margin-top:20px;padding:10px;background:#ef4444;color:#fff;border:none;cursor:pointer;">Delete Selected</button>
+        <script>function del(){const ids=Array.from(document.querySelectorAll('.cb:checked')).map(c=>c.dataset.id);if(ids.length)window.location.href='?ps=\${ps}&view=\${view}&delete='+ids.join(',');}</script>
+    </body>\`);
 });
 
 app.post('/api/ai', async (req, res) => {
     const { prompt } = req.body;
     const key = process.env.GEMINI_API_KEY;
-    if (!key) return res.json({ response: "API Key missing." });
+    if (!key) return res.json({ response: "Key missing." });
     try {
         const genAI = new GoogleGenerativeAI(key);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
-        res.json({ response: result.response.text() });
+        res.json({ response: await result.response.text() });
     } catch (e) { res.json({ response: "Error: " + e.message }); }
 });
 
@@ -180,4 +182,4 @@ app.get('/', (req, res) => {
     res.send('<h1>Antigravity Proxy Online</h1>');
 });
 
-app.listen(PORT, () => console.log(`Active on ${PORT}`));
+app.listen(PORT, () => console.log(`Active on ${ PORT }`));
