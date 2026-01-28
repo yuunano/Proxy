@@ -205,15 +205,7 @@ const unblocker = new Unblocker({
                 // We inject it as early as possible in the <head> to avoid reload issues
                 const scriptTag = `<script src="/proxy-internal/sticky.js"></script>`;
 
-                // Inject <base> tag to help the browser resolve relative URLs correctly
-                let baseTag = '';
-                const parts = data.url.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
-                if (parts) {
-                    const targetOrigin = (parts[1] === 'plain://' ? 'http://' : parts[1]) + parts[2];
-                    baseTag = `<base href="${targetOrigin}/">`;
-                }
-
-                const payload = baseTag + scriptTag;
+                const payload = scriptTag;
 
                 if (data.body && data.body.includes('<head>')) {
                     data.body = data.body.replace('<head>', '<head>' + payload);
@@ -588,9 +580,15 @@ app.post('/api/log-chat', (req, res) => {
     res.json({ success: true });
 });
 
+
 // --- 404 RESCUE MIDDLEWARE ---
-// If a request hits Render directly (404) but has a proxied referer, redirect it back into the proxy.
+// If a request leaks out of the proxy to the root server, redirect it back into the proxy.
 app.use((req, res, next) => {
+    // 既にプロキシ済みのパスや管理用パスならループ防止のためスルーする
+    if (req.url.startsWith('/proxy/') || req.url.startsWith('/proxy-internal/') || req.url.startsWith('/admin') || req.url.startsWith('/api/')) {
+        return next();
+    }
+
     const referer = req.headers['referer'];
     if (referer && referer.includes('/proxy/')) {
         const parts = referer.split('/proxy/');
@@ -599,7 +597,6 @@ app.use((req, res, next) => {
 
         if (match) {
             const targetOrigin = (match[1] === 'plain://' ? 'http://' : match[1]) + match[2];
-            // Reconstruct the intended proxied URL
             let targetUrl = targetOrigin + req.url;
             if (targetUrl.startsWith('http://')) targetUrl = targetUrl.replace('http://', 'plain://');
 
