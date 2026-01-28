@@ -142,20 +142,31 @@ const unblocker = new Unblocker({
             delete data.headers['x-frame-options'];
             delete data.headers['x-content-type-options'];
 
-            // Allow all origins to prevent CORS issues with media blobs/fragments
+            // --- VIDEO STREAMING OPTIMIZATION ---
+            // Allow all origins and expose crucial headers for video fragments (Range)
             data.headers['access-control-allow-origin'] = '*';
             data.headers['access-control-allow-methods'] = 'GET, POST, OPTIONS, HEAD, PUT, DELETE';
+            data.headers['access-control-allow-headers'] = 'Range, Content-Type, Authorization, X-Requested-With, Origin, Accept';
+            data.headers['access-control-expose-headers'] = 'Content-Length, Content-Range, Accept-Ranges';
+
+            // Force Accept-Ranges to allow video seeking even if target hides it
+            if (data.headers['content-type'] && data.headers['content-type'].includes('video')) {
+                data.headers['accept-ranges'] = 'bytes';
+            }
         },
         // 2. Inject a script to force links to stay within the proxy (Nuclear Externalized)
         (data) => {
             if (data.contentType && data.contentType.includes('text/html')) {
-                // Point to our internal cacheable script instead of injecting the whole thing
+                // Point to our internal cacheable script
+                // We inject it as early as possible in the <head> to avoid reload issues
                 const scriptTag = `<script src="/proxy-internal/sticky.js"></script>`;
 
-                if (data.body && data.body.includes('</body>')) {
-                    data.body = data.body.replace('</body>', scriptTag + '</body>');
+                if (data.body && data.body.includes('<head>')) {
+                    data.body = data.body.replace('<head>', '<head>' + scriptTag);
+                } else if (data.body && data.body.includes('<html>')) {
+                    data.body = data.body.replace('<html>', '<html>' + scriptTag);
                 } else if (data.body) {
-                    data.body += scriptTag;
+                    data.body = scriptTag + data.body;
                 }
             }
         }
