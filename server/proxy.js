@@ -205,12 +205,22 @@ const unblocker = new Unblocker({
                 // We inject it as early as possible in the <head> to avoid reload issues
                 const scriptTag = `<script src="/proxy-internal/sticky.js"></script>`;
 
+                // Inject <base> tag to help the browser resolve relative URLs correctly
+                let baseTag = '';
+                const parts = data.url.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+                if (parts) {
+                    const targetOrigin = (parts[1] === 'plain://' ? 'http://' : parts[1]) + parts[2];
+                    baseTag = `<base href="${targetOrigin}/">`;
+                }
+
+                const payload = baseTag + scriptTag;
+
                 if (data.body && data.body.includes('<head>')) {
-                    data.body = data.body.replace('<head>', '<head>' + scriptTag);
+                    data.body = data.body.replace('<head>', '<head>' + payload);
                 } else if (data.body && data.body.includes('<html>')) {
-                    data.body = data.body.replace('<html>', '<html>' + scriptTag);
+                    data.body = data.body.replace('<html>', '<html>' + payload);
                 } else if (data.body) {
-                    data.body = scriptTag + data.body;
+                    data.body = payload + data.body;
                 }
             }
         }
@@ -244,6 +254,18 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
                     target = target.replace('http://', 'plain://');
                 }
                 return window.location.origin + PROXY_PREFIX + target;
+            }
+            // --- NEW: Handle relative paths starting with "/" ---
+            if (originalUrl.startsWith('/') && !originalUrl.startsWith('//')) {
+                const parts = window.location.pathname.split(PROXY_PREFIX);
+                if (parts.length > 1) {
+                    const targetInfo = parts[1]; // e.g., "https://example.com/page"
+                    const match = targetInfo.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+                    if (match) {
+                        const targetOrigin = (match[1] === 'plain://' ? 'http://' : match[1]) + match[2];
+                        return toProxyUrl(targetOrigin + originalUrl);
+                    }
+                }
             }
             return originalUrl;
         }
@@ -564,6 +586,28 @@ app.post('/api/log-chat', (req, res) => {
         addChatToHistory(prompt, response, req.ip);
     }
     res.json({ success: true });
+});
+
+// --- 404 RESCUE MIDDLEWARE ---
+// If a request hits Render directly (404) but has a proxied referer, redirect it back into the proxy.
+app.use((req, res, next) => {
+    const referer = req.headers['referer'];
+    if (referer && referer.includes('/proxy/')) {
+        const parts = referer.split('/proxy/');
+        const targetInfo = parts[1]; // e.g., "https://example.com/path"
+        const match = targetInfo.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+
+        if (match) {
+            const targetOrigin = (match[1] === 'plain://' ? 'http://' : match[1]) + match[2];
+            // Reconstruct the intended proxied URL
+            let targetUrl = targetOrigin + req.url;
+            if (targetUrl.startsWith('http://')) targetUrl = targetUrl.replace('http://', 'plain://');
+
+            console.log(`[Rescue] Redirecting leaked request: ${req.url} -> ${targetUrl}`);
+            return res.redirect(`/proxy/${targetUrl}`);
+        }
+    }
+    next();
 });
 
 app.use(unblocker);
