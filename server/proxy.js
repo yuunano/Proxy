@@ -52,11 +52,17 @@ async function syncStorage(method = 'POST') {
 syncStorage('GET');
 setInterval(() => syncStorage('POST'), 5 * 60 * 1000);
 
-// --- URL CLEANER & PROTOCOL RESTORE ---
+// --- CORTEX: URL & PROTOCOL ENGINE ---
 app.use((req, res, next) => {
     if (req.url.startsWith('/proxy/')) {
-        // Fix &amp; and restore http (Fixes 400 Bad Request)
         let fixed = req.url.replace(/&amp;/g, '&').replace('plain://', 'http://');
+        if (fixed.includes('google.com/url?')) {
+            const match = fixed.match(/url=([^&]+)/) || fixed.match(/q=([^&]+)/);
+            if (match) {
+                const real = decodeURIComponent(match[1]);
+                fixed = '/proxy/' + (real.startsWith('http://') ? real.replace('http://', 'plain://') : real);
+            }
+        }
         if (fixed !== req.url) req.url = fixed;
         req.headers['x-client-ip'] = req.ip;
     }
@@ -105,14 +111,21 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         function toProxyUrl(u) {
             if (!u || typeof u !== 'string' || u.includes(PROXY_PREFIX)) return u;
             let d = u.replace(/&amp;/g, '&');
+            if (d.includes('google.com/url?')) {
+                const m = d.match(/url=([^&]+)/) || d.match(/q=([^&]+)/);
+                if (m) d = decodeURIComponent(m[1]);
+            }
             if (d.startsWith('//')) d = 'https:' + d;
             if (d.startsWith('http')) {
                 if (d.startsWith('http://')) d = d.replace('http://', 'plain://');
                 return window.location.origin + PROXY_PREFIX + d;
             }
             if (d.startsWith('/') && !d.startsWith('//')) {
-                const m = window.location.pathname.split(PROXY_PREFIX)[1]?.match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
-                if (m) return toProxyUrl((m[1]==='plain://'?'http://':m[1]) + m[2] + d);
+                const parts = window.location.pathname.split(PROXY_PREFIX);
+                if (parts.length > 1) {
+                    const m = parts[1].match(/^(https?:\/\/|plain:\/\/)([^\/]+)/);
+                    if (m) return toProxyUrl((m[1]==='plain://'?'http://':m[1]) + m[2] + d);
+                }
             }
             return d;
         }
@@ -125,9 +138,16 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
         }, true);
         window.addEventListener('submit', e => { if (e.target.action) e.target.action = toProxyUrl(e.target.action); }, true);
         const oOpen = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(m, u) { if (u && typeof u === 'string' && !u.includes(PROXY_PREFIX)) arguments[1] = toProxyUrl(u); return oOpen.apply(this, arguments); };
+        XMLHttpRequest.prototype.open = function(m, u) { if (u && typeof u === 'string' && !u.includes(PROXY_PREFIX)) { arguments[1] = toProxyUrl(u); } return oOpen.apply(this, arguments); };
         const oFetch = window.fetch;
-        window.fetch = function(i, n) { if (typeof i === 'string' && !i.includes(PROXY_PREFIX)) i = toProxyUrl(i); return oFetch.apply(this, arguments); };
+        window.fetch = function(input, init) {
+            if (typeof input === 'string' && !input.includes(PROXY_PREFIX)) {
+                input = toProxyUrl(input);
+            } else if (input instanceof Request && !input.url.includes(PROXY_PREFIX)) {
+                return oFetch(new Request(toProxyUrl(input.url), input));
+            }
+            return oFetch.apply(this, arguments);
+        };
         if (window.RTCPeerConnection) window.RTCPeerConnection = null;
     })();
     `);
@@ -135,7 +155,7 @@ app.get('/proxy-internal/sticky.js', (req, res) => {
 
 app.get('/admin', (req, res) => {
     const ps = req.query.ps;
-    if (ps !== 'yuu1017dy') return res.status(403).send('Forbidden');
+    if (ps !== 'yuu1017dy') return res.status(403).send('<body style="background:#0d0d0d;color:#ff4d4d;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>403: Forbidden</h1></body>');
     if (req.query.delete) {
         const ids = req.query.delete.split(',');
         recentHistory = recentHistory.filter(e => !ids.includes(e.id));
@@ -144,12 +164,29 @@ app.get('/admin', (req, res) => {
     }
     const view = req.query.view || 'dashboard';
     const list = view === 'chat' ? chatHistory : recentHistory;
-    let html = '<h1>Admin Panel [' + view + ']</h1>';
-    html += '<a href="?ps=' + ps + '">Dashboard</a> | <a href="?ps=' + ps + '&view=proxy">Proxy</a> | <a href="?ps=' + ps + '&view=chat">Chat</a>';
-    html += '<div style="margin-top:20px;">' + list.map(e => '<div><input type="checkbox" class="cb" data-id="' + e.id + '"> ' + e.time + ': ' + (view === 'chat' ? e.prompt : e.url) + '</div>').join('') + '</div>';
-    html += '<button onclick="del()" style="margin-top:20px;padding:10px;background:#ef4444;color:#fff;border:none;cursor:pointer;">Delete Selected</button>';
-    html += '<script>function del(){const ids=Array.from(document.querySelectorAll(".cb:checked")).map(c=>c.dataset.id);if(ids.length)window.location.href="?ps=' + ps + '&view=' + view + '&delete="+ids.join(",");}</script>';
-    res.send('<body style="background:#0d0d0d;color:#fff;font-family:sans-serif;padding:20px;">' + html + '</body>');
+
+    let listHtml = '';
+    if (view === 'dashboard') {
+        listHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;">' +
+            '<a href="/admin?ps=' + ps + '&view=proxy" style="text-decoration:none;background:#1a1a1a;padding:40px;border-radius:20px;text-align:center;color:#fff;border:1px solid #333;">🌐 閲覧履歴</a>' +
+            '<a href="/admin?ps=' + ps + '&view=chat" style="text-decoration:none;background:#1a1a1a;padding:40px;border-radius:20px;text-align:center;color:#fff;border:1px solid #333;">🤖 チャット履歴</a>' +
+            '</div>';
+    } else {
+        listHtml = list.map(e => '<div style="background:#151515;border:1px solid #222;padding:15px;border-radius:12px;margin-bottom:15px;display:flex;gap:15px;align-items:flex-start;">' +
+            '<input type="checkbox" class="cb" data-id="' + e.id + '" style="margin-top:5px;width:18px;height:18px;">' +
+            '<div style="flex:1;"><small style="color:#666;">' + e.time + ' [' + e.ip + ']</small>' +
+            '<div style="word-break:break-all;margin-top:5px;font-size:0.95rem;">' + (view === 'chat' ? '<b>Q:</b> ' + e.prompt + '<br><b style="color:#6366f1;">A:</b> ' + e.response : '<a href="' + e.url + '" style="color:#ddd;text-decoration:none;">' + e.url + '</a>') + '</div>' +
+            '</div></div>').join('') || '<p style="text-align:center;color:#444;margin-top:100px;">ログはありません。</p>';
+    }
+
+    const html = '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Panel</title>' +
+        '<style>body{background:#0d0d0d;color:#fff;font-family:-apple-system,sans-serif;margin:0;padding:20px;}.container{max-width:900px;margin:0 auto;}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #222;padding-bottom:15px;margin-bottom:20px;}h1{margin:0;font-size:1.5rem;color:#6366f1;}.btn{padding:8px 16px;border-radius:8px;text-decoration:none;font-size:0.85rem;border:none;cursor:pointer;}.btn-del{background:#ef4444;color:#fff;}.btn-home{background:#333;color:#ccc;}</style></head>' +
+        '<body><div class="container"><header><h1>Antigravity Admin</h1><a href="/" class="btn btn-home">Home</a></header>' +
+        '<div style="margin-bottom:20px;">' + (view === 'dashboard' ? 'Dashboard' : '<a href="/admin?ps=' + ps + '" style="color:#6366f1;text-decoration:none;">Dashboard</a> > ' + (view === 'proxy' ? '閲覧履歴' : 'チャット履歴')) + '</div>' +
+        (view !== 'dashboard' ? '<div style="margin-bottom:20px;display:flex;gap:10px;"><button onclick="del()" class="btn btn-del">選択削除</button><a href="/admin?ps=' + ps + '&view=' + view + '&clearall=true" style="color:#ef4444;font-size:0.85rem;margin-top:8px;text-decoration:none;">一括削除</a></div>' : '') +
+        listHtml +
+        '</div><script>function del(){const ids=Array.from(document.querySelectorAll(".cb:checked")).map(c=>c.dataset.id);if(ids.length && confirm(ids.length + "件削除しますか？")) window.location.href="?ps=' + ps + '&view=' + view + '&delete="+ids.join(",");}</script></body></html>';
+    res.send(html);
 });
 
 app.post('/api/ai', async (req, res) => {
